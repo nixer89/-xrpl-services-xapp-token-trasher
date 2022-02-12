@@ -16,13 +16,13 @@ a.footerlink {
 }
 
 .floatcenter {
-    display: inline-block;
-    margin: auto;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    vertical-align: middle;
+  display: inline-block;
+  margin: auto;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  vertical-align: middle;
 }
 
 .mat-expansion-panel-header-title {
@@ -82,7 +82,7 @@ body .snackbar-failed {
     color: rgb(255, 91, 91) !important;
 }
 
-.mat-raised-button {
+.mat-raised-button .thin {
     line-height: 30px !important;
 }
 

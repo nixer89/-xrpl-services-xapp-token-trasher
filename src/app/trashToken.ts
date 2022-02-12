@@ -13,6 +13,8 @@ import { webSocket, WebSocketSubject} from 'rxjs/webSocket';
 import { XummTypes } from 'xumm-sdk';
 import { TypeWriter } from './utils/TypeWriter';
 import * as clipboard from 'copy-to-clipboard';
+import { XummPostPayloadBodyJson } from 'xumm-sdk/dist/src/types'
+import * as transactionParser from 'ripple-lib-transactionparser'
 
 @Component({
   selector: 'trashToken',
@@ -31,9 +33,22 @@ export class TrashToken implements OnInit, OnDestroy {
   existingAccountLines:TrustLine[] = [];
   simpleTrustlines:SimpleTrustline[] = [];
 
+  selectedToken:SimpleTrustline = null;
+
+  usePathFind:boolean = false;
+  pathFind:any = null;
+
+  originalOwnerCount:number = null;
+
   searchString:string = null;
 
-  canDoPathFind:boolean = false;
+  canConvert:boolean = false;
+  convertionStarted:boolean = false;
+  convertedXrp:number = null;
+
+  defaultRippleSet:boolean = false;
+
+  checkboxSendToIssuer:boolean = false;
 
   transactionSuccessfull: Subject<void> = new Subject<void>();
 
@@ -41,6 +56,8 @@ export class TrashToken implements OnInit, OnDestroy {
 
   accountReserve:number = 10000000;
   ownerReserve:number = 2000000;
+
+  sessionCounter:number = 1;
 
   @Input()
   ottChanged: Observable<any>;
@@ -73,14 +90,15 @@ export class TrashToken implements OnInit, OnDestroy {
 
     this.loadingData = true;
 
-    await this.loadAccountData("r9N4v3cWxfh4x6yUNjxNy3DbWUgbzMBLdk");
+    //await this.loadAccountData("r9N4v3cWxfh4x6yUNjxNy3DbWUgbzMBLdk");
+
+    this.originalOwnerCount = this.xrplAccountInfo?.OwnerCount;
 
     this.ottReceived = this.ottChanged.subscribe(async ottData => {
       this.infoLabel = "ott received: " + JSON.stringify(ottData);
       console.log("ottReceived: " + JSON.stringify(ottData));
 
       if(ottData) {
-        return;
 
         this.infoLabel = JSON.stringify(ottData);
         
@@ -91,6 +109,23 @@ export class TrashToken implements OnInit, OnDestroy {
 
         if(ottData && ottData.account && ottData.accountaccess == 'FULL') {
           await this.loadAccountData(ottData.account);
+          this.originalOwnerCount = this.xrplAccountInfo?.OwnerCount;
+
+          try {
+            //read origin data
+            if(ottData.issuer && ottData.currency) {
+              //pre selected token!
+              let preselect = this.simpleTrustlines.filter(trustline => { return ottData.issuer === trustline.issuer && ottData.currency === trustline.currency });
+
+              if(preselect && preselect.length == 1) {
+                await this.selectToken(preselect[0])
+              }
+            }
+          } catch(err) {
+            //nothing if it fails.. just reset some things
+            this.selectedToken = null;
+          }
+
           this.loadingData = false;
 
           //await this.loadAccountData(ottData.account); //false = ottResponse.node == 'TESTNET' 
@@ -101,8 +136,6 @@ export class TrashToken implements OnInit, OnDestroy {
 
         this.infoLabel = JSON.stringify(this.xrplAccountInfo);
       }
-
-
 
       //this.testMode = true;
       //await this.loadAccountData("rELeasERs3m4inA1UinRLTpXemqyStqzwh");
@@ -243,6 +276,7 @@ export class TrashToken implements OnInit, OnDestroy {
       });
     } catch(err) {
       this.loadingData = false;
+      this.handleError(err); 
       //this.infoLabel = JSON.stringify(err);
     }
   }
@@ -268,6 +302,8 @@ export class TrashToken implements OnInit, OnDestroy {
         if(message_acc_info && message_acc_info.status && message_acc_info.type && message_acc_info.type === 'response') {
           if(message_acc_info.status === 'success' && message_acc_info.result && message_acc_info.result.account_data) {
             accInfo = message_acc_info.result.account_data;
+
+            this.defaultRippleSet = flagUtil.isDefaultRippleEnabled(accInfo.Flags)
 
             console.log("accInfo: " + JSON.stringify(accInfo));
 
@@ -319,6 +355,7 @@ export class TrashToken implements OnInit, OnDestroy {
           console.log("finished to read account lines!")
 
           this.existingAccountLines = trustlines;
+          this.simpleTrustlines = [];
 
           for(let i = 0; i < this.existingAccountLines.length; i++) {
             let issuer:string = this.existingAccountLines[i].account;
@@ -346,14 +383,15 @@ export class TrashToken implements OnInit, OnDestroy {
         }
 
         console.log("ACCOUNT_INFO: " + JSON.stringify(this.xrplAccountInfo));
-        console.log("ACCOUNT_LINES: " + this.existingAccountLines);
-        console.log("ACCOUNT_LINES_SIMPLE: " + this.simpleTrustlines);
+        console.log("ACCOUNT_LINES: " + JSON.stringify(this.existingAccountLines));
+        console.log("ACCOUNT_LINES_SIMPLE: " + JSON.stringify(this.simpleTrustlines));
       } else {
         this.xrplAccountInfo = "no account"
         this.existingAccountLines = [];
       }
     } catch(err) {
       this.errorLabel = JSON.stringify(err);
+      this.handleError(err);
     }
   }
 
@@ -389,29 +427,415 @@ export class TrashToken implements OnInit, OnDestroy {
   }
 
   async selectToken(token: SimpleTrustline) {
-    console.log("SELECTED: " + JSON.stringify(token));
-    //check path finding!
-    let pathfindRequest = {
-      command: "ripple_path_find",
-      source_account: this.xrplAccountInfo.Account,
-      source_currencies: [{
-          currency: token.currency
-      }],
-      destination_account: this.xrplAccountInfo.Account,
-      destination_amount: "-1",
-      send_max: {
-          value: token.balance,
-          currency: token.currency,
-          issuer: token.issuer
+    this.loadingData = true;
+    try {
+      this.moveNext();
+      console.log("SELECTED: " + JSON.stringify(token));
+      this.selectedToken = token;
+      this.searchString = null;
+
+      this.simpleTrustlines = []
+
+      for(let i = 0; i < this.existingAccountLines.length; i++) {
+        let issuer:string = this.existingAccountLines[i].account;
+        let balance = Number(this.existingAccountLines[i].balance);
+        let currency = this.existingAccountLines[i].currency;
+        let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
+
+        if(balance < 0)
+          balance = balance * -1;
+
+        let balanceShow = normalizer.normalizeBalance(balance);
+
+        this.simpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
+      }
+
+      if(this.selectedToken.balance > 0) {
+        if(this.usePathFind) {
+          //check path finding!
+          let pathfindRequest = {
+            command: "ripple_path_find",
+            source_account: this.xrplAccountInfo.Account,
+            destination_account: this.xrplAccountInfo.Account,
+            destination_amount: "-1",
+            send_max: {
+                value: token.balance+"",
+                currency: token.currency,
+                issuer: token.issuer
+            }
+          }
+
+          this.pathFind = await this.xrplWebSocket.getWebsocketMessage('token-trasher', pathfindRequest, this.isTestMode);
+
+          if(this.pathFind?.result?.alternatives && this.pathFind.result.alternatives.length > 0 && this.pathFind.result.alternatives[0].destination_amount && Number(this.pathFind.result.alternatives[0].destination_amount) > 5000) {
+            //WE CAN DO PATHFINDING! YAY!
+            this.canConvert = true;
+          } else {
+            console.log("path find not possible!")
+          }
+        } else {
+          //check path finding!
+          let bookOfferRequest = {
+            command: "book_offers",
+            taker: this.xrplAccountInfo.Account,
+            taker_gets: {
+              currency: "XRP"
+            },
+            taker_pays: {
+              currency: this.selectedToken.currency,
+              issuer: this.selectedToken.issuer
+            },
+            limit: 10
+          }
+
+          let bookOffers = await this.xrplWebSocket.getWebsocketMessage('token-trasher', bookOfferRequest, this.isTestMode);
+
+          if(bookOffers?.result?.offers && bookOffers.result.offers.length > 0) {
+            //WE CAN DO PATHFINDING! YAY!
+            this.canConvert = true;
+          } else {
+            console.log("offer convertion not possible!")
+          }
+        }
+      }
+
+      //now lets check balance again and move left over token to the issuer
+    } catch(err) {
+      console.log("ERROR SELECTING TOKEN");
+      console.log(JSON.stringify(err));
+      this.handleError(err);
+    }
+
+    this.loadingData = false;
+  }
+
+  async convertTokenIntoXrp() {
+    this.loadingData = true;
+    try {
+      if(this.usePathFind) {
+        //add 10% margin on the amounts:
+        let xrpAmount:number = Math.round(Number(this.pathFind.result.alternatives[0].destination_amount)*1.1);
+        let tokenAmount:number = (this.selectedToken.balance * 1000000 * 1.1) / 1000000;
+
+        let payload:GenericBackendPostRequest = {
+          options: {
+            xrplAccount: this.xrplAccountInfo.Account,
+            pushDisabled: true,
+            isRawTrx: true
+          },
+          payload: {
+            options: {
+              forceAccount: true,
+            },
+            txjson: {
+              TransactionType: "Payment",
+              Account: this.xrplAccountInfo.Account,
+              Destination: this.xrplAccountInfo.Account,
+              SendMax: {
+                value: tokenAmount,
+                currency: this.selectedToken.currency,
+                issuer: this.selectedToken.issuer
+              },
+              Amount: xrpAmount.toString(),
+              Paths: this.pathFind.result.alternatives[0].paths_computed,
+              Flags: 131072
+            }
+          }
+        }
+
+        this.convertionStarted = true;
+        let message = await this.waitForTransactionSigning(payload);
+
+        if(message && message.payload_uuidv4 && message.signed) {
+          let paymentResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
+          if(paymentResult && paymentResult.success && paymentResult.account && paymentResult.account === this.xrplAccountInfo.Account && paymentResult.testnet == this.isTestMode) {
+            //payment ok!
+            let paymentCommand = {
+              command: "tx",
+              transaction: paymentResult.txid
+            }
+
+            let paymentTransaction = await this.xrplWebSocket.getWebsocketMessage('token-trasher', paymentCommand, this.isTestMode);
+
+            if(paymentTransaction?.result?.meta?.delivered_amount) {
+              this.convertedXrp = Number(paymentTransaction.result.meta.delivered_amount)/1000000;
+            }
+
+          } else {
+            //payment not success
+            this.convertedXrp = null;
+            this.convertionStarted = false;
+          }
+        } else {
+          //not signed or error?
+          this.convertedXrp = null;
+            this.convertionStarted = false;
+        }
+      } else {
+        //use a order
+        let payload:GenericBackendPostRequest = {
+          options: {
+            xrplAccount: this.xrplAccountInfo.Account,
+            pushDisabled: true,
+            isRawTrx: true
+          },
+          payload: {
+            options: {
+              forceAccount: true,
+            },
+            txjson: {
+              TransactionType: "OfferCreate",
+              Account: this.xrplAccountInfo.Account,
+              Flags: 655360,
+              TakerGets: {
+                issuer: this.selectedToken.issuer,
+                currency: this.selectedToken.currency,
+                value: this.selectedToken.balance
+              },
+              TakerPays: "1"
+            }
+          }
+        }
+
+        this.convertionStarted = true;
+        let message = await this.waitForTransactionSigning(payload);
+
+        if(message && message.payload_uuidv4 && message.signed) {
+          let offerResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
+          if(offerResult && offerResult.success && offerResult.account && offerResult.account === this.xrplAccountInfo.Account && offerResult.testnet == this.isTestMode) {
+            //payment ok!
+            let paymentCommand = {
+              command: "tx",
+              transaction: offerResult.txid
+            }
+
+            let offerCreateTransaction = await this.xrplWebSocket.getWebsocketMessage('token-trasher', paymentCommand, this.isTestMode);
+
+            console.log("offer create transaction: ");
+            console.log(JSON.stringify(offerCreateTransaction));
+
+            if(offerCreateTransaction?.result?.meta) {
+              this.convertedXrp = 0;
+              let balanceChanges = transactionParser.parseBalanceChanges(offerCreateTransaction.result.meta);
+              console.log("balanceChanges: " + JSON.stringify(balanceChanges));
+
+              if (Object.keys(balanceChanges).indexOf(this.xrplAccountInfo.Account) > -1) {
+                const mutations = balanceChanges[this.xrplAccountInfo.Account]
+                for(let m = 0; m < mutations.length;m++) {
+                  if(mutations[m].counterparty === '') {
+                    //we have XRP
+                    this.convertedXrp += Number(mutations[m].value);
+                  }
+                }
+              }
+            }
+
+            console.log("this.convertedXrp: " + this.convertedXrp);
+          } else {
+            //payment not success
+            this.convertedXrp = null;
+            this.convertionStarted = false;
+          }
+        } else {
+          //not signed or error?
+          this.convertedXrp = null;
+          this.convertionStarted = false;
+        }
+      }
+
+      //reload account data and balances!
+      await this.loadAccountData(this.xrplAccountInfo.Account);
+
+      console.log("this.simpleTrustlines: " + JSON.stringify(this.simpleTrustlines));
+
+      //update selected token again!
+      let updatedToken = this.simpleTrustlines.filter(trustline => { return this.selectedToken.issuer === trustline.issuer && this.selectedToken.currency === trustline.currency });
+
+      console.log("updatedToken: " + JSON.stringify(updatedToken));
+
+      if(updatedToken && updatedToken.length > 0) {
+        this.selectedToken = updatedToken[0];
+      }
+
+      console.log("selectedToken: " + JSON.stringify(this.selectedToken));
+
+    } catch(err) {
+      console.log("ERROR CONVERTING INTO XRP");
+      console.log(JSON.stringify(err));
+      this.handleError(err);
+    }
+
+    this.loadingData = false;
+  }
+
+  async sendToIssuer() {
+    this.loadingData = true;
+    try {
+      let issuerPayment:XummPostPayloadBodyJson = {
+        options: {
+          forceAccount: true
+        },
+        txjson: {
+          TransactionType: "Payment",
+          Account: this.xrplAccountInfo.Account,
+          Destination: this.selectedToken.issuer,
+          Amount: {
+            value: this.selectedToken.balance,
+            currency: this.selectedToken.currency,
+            issuer: this.selectedToken.issuer
+          }
+        }
+      }
+
+      let payload:GenericBackendPostRequest = {
+        options: {
+          xrplAccount: this.xrplAccountInfo.Account,
+          pushDisabled: true
+        },
+        payload: issuerPayment
+      }
+
+      let message = await this.waitForTransactionSigning(payload);
+
+      if(message && message.payload_uuidv4 && message.signed) {
+        let paymentResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
+        if(paymentResult && paymentResult.success && paymentResult.account && paymentResult.account === this.xrplAccountInfo.Account && paymentResult.testnet == this.isTestMode) {
+          //reload account data and balances!
+          await this.loadAccountData(this.xrplAccountInfo.Account);
+
+          //update selected token again!
+          let updatedToken = this.simpleTrustlines.filter(trustline => { return this.selectedToken.issuer === trustline.issuer && this.selectedToken.currency === trustline.currency });
+
+          if(updatedToken && updatedToken.length == 1) {
+            this.selectedToken = updatedToken[0];
+          }
+        }
+      }
+    } catch(err) {
+      console.log("ERROR SENDING BACK TO ISSUER");
+      console.log(JSON.stringify(err));
+      this.handleError(err);
+    }
+
+    this.loadingData = false;
+  }
+
+  async removeTrustLine() {
+    this.loadingData = true;
+
+    let genericBackendRequest:GenericBackendPostRequest = {
+      options: {
+        xrplAccount: this.xrplAccountInfo.Account,
+        pushDisabled: true
+      },
+      payload: {
+        txjson: {
+          Account: this.xrplAccountInfo.Account,
+          TransactionType: "TrustSet",
+          Flags: 2097152 + (this.defaultRippleSet ? 262144 : 131072),
+          LimitAmount: {
+            currency: this.selectedToken.currency,
+            issuer: this.selectedToken.issuer,
+            value: 0
+          }
+        },
+        custom_meta: {
+          instruction: "- Remove the Trustline.\n\nPlease sign with the selected Account!"
+        }
       }
     }
 
-    let pathfindRespone = await this.xrplWebSocket.getWebsocketMessage('token-trasher', pathfindRequest, this.isTestMode);
+    try {
+      let message:any = await this.waitForTransactionSigning(genericBackendRequest);
 
-    if(pathfindRespone?.result?.alternatives && pathfindRespone.result.alternatives.length > 0) {
-      //WE CAN DO PATHFINDING! YAY!
-      
+      //this.infoLabel = "setTrustline " + JSON.stringify(this.recipient_account_info);
+
+      if(message && message.payload_uuidv4 && message.signed) {
+
+        let info = await this.xummApi.validateTransaction(message.payload_uuidv4)
+
+        if(info && info.success && info.account && info.account && info.testnet == this.isTestMode) {
+          if(this.xrplAccountInfo.Account == info.account) {
+            await this.loadAccountData(this.xrplAccountInfo.Account);
+          } else {
+            this.snackBar.open("You signed with the wrong account. Please sign with Recipient Account!", null, {panelClass: 'snackbar-failed', duration: 5000, horizontalPosition: 'center', verticalPosition: 'top'});
+          }
+        } else {
+          this.snackBar.open("Transaction not successful!", null, {panelClass: 'snackbar-failed', duration: 5000, horizontalPosition: 'center', verticalPosition: 'top'});
+        }
+      }
+    } catch(err) {
+      this.handleError(err);
     }
+
+    this.loadingData = false;
+  }
+
+  tokenHasBeenRemoved() {
+    return this.selectedToken && this.simpleTrustlines && this.simpleTrustlines.filter(trustline => { return trustline.issuer === this.selectedToken.issuer && trustline.currency === this.selectedToken.currency }).length == 0;
+  }
+
+  async makeDonation() {
+    this.loadingData = true;
+
+    try {
+      let genericBackendRequest:GenericBackendPostRequest = {
+        options: {
+          xrplAccount: this.xrplAccountInfo.Account,
+          pushDisabled: true
+        },
+        payload: {
+          txjson: {
+            TransactionType: "Payment",
+            Memos : [
+              {Memo: {MemoType: Buffer.from("[https://xrpl.services]-Memo", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from("Donation via 'Token Trasher' xApp" , 'utf8').toString('hex').toUpperCase()}},
+            ]
+          },
+          custom_meta: {
+            instruction: "You are about to donate to xrpl.services,\na project by @nixerFFM and not affiliated with XRPLLabs,\nthe creator of the XUMM wallet.\n\nThank you for your donation!",
+            blob: {
+              isDonation: true,
+              purpose: "freiwillige Spende"
+            }
+          }
+        }
+      }
+    
+      let message:any = await this.waitForTransactionSigning(genericBackendRequest);
+
+      //this.infoLabel = "setTrustline " + JSON.stringify(this.recipient_account_info);
+
+      if(message && message.payload_uuidv4 && message.signed) {
+
+        let info = await this.xummApi.validateTransaction(message.payload_uuidv4)
+
+        if(info && info.success && info.account && info.account && info.testnet == this.isTestMode) {
+          this.snackBar.open("Thank you for your donation!", null, {panelClass: 'snackbar-success', duration: 8000, horizontalPosition: 'center', verticalPosition: 'top'});
+        }
+      }
+    } catch(err) {
+      this.handleError(err);
+    }
+
+    this.loadingData = false;
+  }
+
+  trashAnotherOne() {
+    
+    this.selectedToken = this.pathFind = this.searchString = this.convertedXrp = null;
+    this.canConvert = this.convertionStarted = this.checkboxSendToIssuer = false;
+
+    this.originalOwnerCount = this.xrplAccountInfo?.OwnerCount;
+
+    this.sessionCounter++;
+
+    this.moveBack();
+    this.moveBack();
+    this.scrollToTop();
+  }
+
+  showDonation(): boolean {
+    return this.sessionCounter % 5 == 0;
   }
 
   close() {
