@@ -170,13 +170,13 @@
             <label>The token {{selectedToken && selectedToken.currencyShow}} has been removed.</label>
           </mat-card>
           <mat-card class="mat-card-green floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
-            <label>Your account gained 2 XRP from removing the trustline</label>
+            <label>Your account gained {{ownerReserve/1000000}} XRP from removing the trustline</label>
             <label *ngIf="convertedXrp && convertedXrp > 0">You also gained {{convertedXrp}} XRP from converting the token into XRP</label>
           </mat-card>
 
           <div *ngIf="(convertedXrp && convertedXrp > 1) || showDonation()" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="start center">
             <mat-card class="mat-card-green floatcenter" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center">
-              <label *ngIf="convertedXrp && convertedXrp > 1">You gained a total of {{convertedXrp + 2}}.</label>
+              <label *ngIf="convertedXrp && convertedXrp > 1">You gained a total of {{convertedXrp + (ownerReserve/1000000)}}.</label>
               <label>Please consider a donation for using this free of charge service. Thank you!</label>
             </mat-card>
             <button mat-raised-button color="primary" style="width: 100%;" (click)="makeDonation()">Make a donation</button>
