@@ -101,7 +101,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
     this.loadFeeReserves();
 
-    this.originalOwnerCount = this.xrplAccountInfo?.OwnerCount;
+    //await this.loadAccountData("rsv13zZpmpdUCPWccYNUoq2nsviqnMumu1");
 
     this.ottReceived = this.ottChanged.subscribe(async ottData => {
       this.infoLabel = "ott received: " + JSON.stringify(ottData);
@@ -295,7 +295,7 @@ export class TrashToken implements OnInit, OnDestroy {
       //get connected node
       let server_info = { command: "server_info" };
 
-      let serverInfoResponse = await this.xrplWebSocket.getWebsocketMessage("token-trasher", server_info, this.isTestMode);
+      this.xrplWebSocket.getWebsocketMessage("token-trasher-2", server_info, this.isTestMode);
 
       this.infoLabel2 = "loading " + xrplAccount;
       if(xrplAccount && isValidXRPAddress(xrplAccount)) {
@@ -334,8 +334,8 @@ export class TrashToken implements OnInit, OnDestroy {
         let accountLinesCommand:any = {
           command: "account_lines",
           account: xrplAccount,
-          ledger_index: serverInfoResponse.result.info.validated_ledger.seq,
-          //ledger_index: "validated",
+          //ledger_index: serverInfoResponse.result.info.validated_ledger.seq,
+          ledger_index: "validated",
           limit: 200
         }
 
@@ -348,7 +348,8 @@ export class TrashToken implements OnInit, OnDestroy {
   
           let marker = accountLines.result.marker;
   
-          console.log("marker: " + marker);
+          //console.log("marker: " + marker);
+          //console.log("LEDGER_INDEX : " + accountLines.result.ledger_index);
 
   
           while(marker) {
@@ -369,7 +370,7 @@ export class TrashToken implements OnInit, OnDestroy {
               }
           }
 
-          console.log("finished to read account lines!")
+          //console.log("finished to read account lines!")
 
           this.existingAccountLines = trustlines;
 
@@ -381,9 +382,9 @@ export class TrashToken implements OnInit, OnDestroy {
 
         this.resetSimpleTrustlineList();
 
-        console.log("ACCOUNT_INFO: " + JSON.stringify(this.xrplAccountInfo));
-        console.log("ACCOUNT_LINES: " + JSON.stringify(this.existingAccountLines));
-        console.log("ACCOUNT_LINES_SIMPLE: " + JSON.stringify(this.simpleTrustlines));
+        //console.log("ACCOUNT_INFO: " + JSON.stringify(this.xrplAccountInfo));
+        //console.log("ACCOUNT_LINES: " + JSON.stringify(this.existingAccountLines));
+        //console.log("ACCOUNT_LINES_SIMPLE: " + JSON.stringify(this.simpleTrustlines));
       } else {
         this.xrplAccountInfo = "no account"
         this.existingAccountLines = [];
@@ -418,7 +419,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
             this.issuerRequiresDestinationTag = flagUtil.isRequireDestinationTagEnabled(accInfo.Flags)
 
-            console.log("issuer accInfo: " + JSON.stringify(accInfo));
+            //console.log("issuer accInfo: " + JSON.stringify(accInfo));
 
             this.infoLabel = JSON.stringify(accInfo);
 
@@ -705,12 +706,12 @@ export class TrashToken implements OnInit, OnDestroy {
       //reload account data and balances!
       await this.loadAccountData(this.xrplAccountInfo.Account);
 
-      console.log("this.simpleTrustlines: " + JSON.stringify(this.simpleTrustlines));
+      //console.log("this.simpleTrustlines: " + JSON.stringify(this.simpleTrustlines));
 
       //update selected token again!
       let updatedToken = this.simpleTrustlines.filter(trustline => { return this.selectedToken.issuer === trustline.issuer && this.selectedToken.currency === trustline.currency });
 
-      console.log("updatedToken: " + JSON.stringify(updatedToken));
+      //console.log("updatedToken: " + JSON.stringify(updatedToken));
 
       if(updatedToken && updatedToken.length > 0) {
         this.selectedToken = updatedToken[0];
@@ -822,7 +823,7 @@ export class TrashToken implements OnInit, OnDestroy {
           if(this.xrplAccountInfo.Account == info.account) {
             await this.loadAccountData(this.xrplAccountInfo.Account);
           } else {
-            this.snackBar.open("You signed with the wrong account. Please sign with Recipient Account!", null, {panelClass: 'snackbar-failed', duration: 5000, horizontalPosition: 'center', verticalPosition: 'top'});
+            this.snackBar.open("You signed with the wrong account. Please sign with the selected Account!", null, {panelClass: 'snackbar-failed', duration: 5000, horizontalPosition: 'center', verticalPosition: 'top'});
           }
         } else {
           this.snackBar.open("Transaction not successful!", null, {panelClass: 'snackbar-failed', duration: 5000, horizontalPosition: 'center', verticalPosition: 'top'});
