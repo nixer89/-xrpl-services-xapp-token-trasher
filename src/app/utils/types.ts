@@ -40,6 +40,32 @@ export interface TrustLine {
     limitN?: number
 }
 
+export interface RippleState {
+    Balance: {
+        currency: string,
+        issuer: string,
+        value: string
+    },
+    Flags: number,
+    HighLimit: {
+        currency: string,
+        issuer: string,
+        value: string
+    },
+    HighNode: string,
+    LedgerEntryType: string,
+    LowLimit: {
+        currency: string,
+        issuer: string,
+        value: string
+    },
+    LowNode: string,
+    PreviousTxnID: string,
+    PreviousTxnLgrSeq: number,
+    index: string
+}
+
+
 export interface SimpleTrustline {
     issuer: string,
     currency: string,

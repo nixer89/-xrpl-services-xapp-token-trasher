@@ -2,7 +2,7 @@ import { Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { XummService } from './services/xumm.service'
 import { XRPLWebsocket } from './services/xrplWebSocket';
 import { Observable, Subject, Subscription } from 'rxjs';
-import { GenericBackendPostRequest, SimpleTrustline, TransactionValidation, TrustLine } from './utils/types';
+import { GenericBackendPostRequest, RippleState, SimpleTrustline, TransactionValidation, TrustLine } from './utils/types';
 import * as flagUtil from './utils/flagutils';
 import { MatStepper } from '@angular/material/stepper';
 import * as normalizer from './utils/normalizers';
@@ -24,6 +24,10 @@ const tfSetNoRipple = 0x20000;
 const tfImmediateOrCancel = 0x40000;
 const tfSell = 0x80000;
 
+//RippleState Flags
+const lsfLowReserve = 0x10000;
+const lsfHighReserve = 0x20000;
+
 @Component({
   selector: 'trashToken',
   templateUrl: './trashToken.html'
@@ -38,7 +42,7 @@ export class TrashToken implements OnInit, OnDestroy {
   
   
   xrplAccountInfo:any = null;
-  existingAccountLines:TrustLine[] = [];
+  existingAccountLines:RippleState[] = [];
   simpleTrustlines:SimpleTrustline[] = [];
 
   selectedToken:SimpleTrustline = null;
@@ -108,6 +112,8 @@ export class TrashToken implements OnInit, OnDestroy {
       console.log("ottReceived: " + JSON.stringify(ottData));
 
       if(ottData) {
+
+        //return;
 
         this.infoLabel = JSON.stringify(ottData);
         
@@ -295,7 +301,7 @@ export class TrashToken implements OnInit, OnDestroy {
       //get connected node
       let server_info = { command: "server_info" };
 
-      this.xrplWebSocket.getWebsocketMessage("token-trasher-2", server_info, this.isTestMode);
+      let serverInfoResponse = await this.xrplWebSocket.getWebsocketMessage("token-trasher", server_info, this.isTestMode);
 
       this.infoLabel2 = "loading " + xrplAccount;
       if(xrplAccount && isValidXRPAddress(xrplAccount)) {
@@ -332,21 +338,21 @@ export class TrashToken implements OnInit, OnDestroy {
 
         //load balance data
         let accountLinesCommand:any = {
-          command: "account_lines",
+          command: "account_objects",
           account: xrplAccount,
-          //ledger_index: serverInfoResponse.result.info.validated_ledger.seq,
-          ledger_index: "validated",
+          type: "state",
+          ledger_index: serverInfoResponse.result.info.validated_ledger.seq,
           limit: 200
         }
 
         console.log("starting to read account lines!")
 
-        let accountLines = await this.xrplWebSocket.getWebsocketMessage('token-trasher', accountLinesCommand, this.isTestMode);
+        let accountObjects = await this.xrplWebSocket.getWebsocketMessage('token-trasher', accountLinesCommand, this.isTestMode);
         
-        if(accountLines?.result?.lines) {
-          let trustlines = accountLines?.result?.lines;
+        if(accountObjects?.result?.account_objects) {
+          let trustlines = accountObjects?.result?.account_objects;
   
-          let marker = accountLines.result.marker;
+          let marker = accountObjects.result.marker;
   
           //console.log("marker: " + marker);
           //console.log("LEDGER_INDEX : " + accountLines.result.ledger_index);
@@ -355,16 +361,16 @@ export class TrashToken implements OnInit, OnDestroy {
           while(marker) {
               console.log("marker: " + marker);
               accountLinesCommand.marker = marker;
-              accountLinesCommand.ledger_index = accountLines.result.ledger_index;
+              accountLinesCommand.ledger_index = accountObjects.result.ledger_index;
 
               //await this.xrplWebSocket.getWebsocketMessage("token-trasher", server_info, this.isTestMode);
   
-              accountLines = await this.xrplWebSocket.getWebsocketMessage('token-trasher', accountLinesCommand, this.isTestMode);
+              accountObjects = await this.xrplWebSocket.getWebsocketMessage('token-trasher', accountLinesCommand, this.isTestMode);
   
-              marker = accountLines?.result?.marker;
+              marker = accountObjects?.result?.marker;
   
-              if(accountLines?.result?.lines) {
-                  trustlines = trustlines.concat(accountLines.result.lines);
+              if(accountObjects?.result?.account_objects) {
+                  trustlines = trustlines.concat(accountObjects.result.lines);
               } else {
                   marker = null;
               }
@@ -383,16 +389,22 @@ export class TrashToken implements OnInit, OnDestroy {
         this.resetSimpleTrustlineList();
 
         //console.log("ACCOUNT_INFO: " + JSON.stringify(this.xrplAccountInfo));
-        //console.log("ACCOUNT_LINES: " + JSON.stringify(this.existingAccountLines));
+        console.log("ACCOUNT_LINES: " + JSON.stringify(this.existingAccountLines));
         //console.log("ACCOUNT_LINES_SIMPLE: " + JSON.stringify(this.simpleTrustlines));
       } else {
         this.xrplAccountInfo = "no account"
         this.existingAccountLines = [];
       }
     } catch(err) {
+      console.log(err);
       this.errorLabel = JSON.stringify(err);
       this.handleError(err);
     }
+  }
+
+  countsTowardsReserve(line: RippleState): boolean {
+    const reserveFlag = line.HighLimit.issuer === this.xrplAccountInfo.Account ? lsfHighReserve : lsfLowReserve;
+    return line.Flags && (line.Flags & reserveFlag) == reserveFlag;
   }
 
   async loadIssuerAccountData(issuerAccount: string) {
@@ -446,18 +458,21 @@ export class TrashToken implements OnInit, OnDestroy {
     let newSimpleTrustline:SimpleTrustline[] = [];
 
     for(let i = 0; i < this.existingAccountLines.length; i++) {
-      let issuer:string = this.existingAccountLines[i].account;
-      let balance = Number(this.existingAccountLines[i].balance);
-      let currency = this.existingAccountLines[i].currency;
-      let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
+      if(this.existingAccountLines[i] && this.countsTowardsReserve(this.existingAccountLines[i])) {
+        let balance = Number(this.existingAccountLines[i].Balance.value);
 
-      if(balance < 0)
-        balance = balance * -1;
+        let issuer:string = this.existingAccountLines[i].HighLimit.issuer === this.xrplAccountInfo.Account ? this.existingAccountLines[i].LowLimit.issuer : this.existingAccountLines[i].HighLimit.issuer;
+        let currency = this.existingAccountLines[i].Balance.currency;
+        let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
 
-      let balanceShow = normalizer.normalizeBalance(balance);
+        if(balance < 0)
+          balance = balance * -1;
 
-      if(!this.searchString || this.searchString.trim().length == 0 || currencyShow.toLocaleLowerCase().includes(this.searchString.trim().toLocaleLowerCase())) {
-        newSimpleTrustline.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
+        let balanceShow = normalizer.normalizeBalance(balance);
+
+        if(!this.searchString || this.searchString.trim().length == 0 || currencyShow.toLocaleLowerCase().includes(this.searchString.trim().toLocaleLowerCase())) {
+          newSimpleTrustline.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
+        }
       }
     }
 
@@ -474,17 +489,20 @@ export class TrashToken implements OnInit, OnDestroy {
     let newSimpleTrustlines:SimpleTrustline[] = []
 
     for(let i = 0; i < this.existingAccountLines.length; i++) {
-      let issuer:string = this.existingAccountLines[i].account;
-      let balance = Number(this.existingAccountLines[i].balance);
-      let currency = this.existingAccountLines[i].currency;
-      let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
+      if(this.existingAccountLines[i] && this.countsTowardsReserve(this.existingAccountLines[i])) {
+        let balance = Number(this.existingAccountLines[i].Balance.value);
 
-      if(balance < 0)
-        balance = balance * -1;
+        let issuer:string = this.existingAccountLines[i].HighLimit.issuer === this.xrplAccountInfo.Account ? this.existingAccountLines[i].LowLimit.issuer : this.existingAccountLines[i].HighLimit.issuer;
+        let currency = this.existingAccountLines[i].Balance.currency;
+        let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
 
-      let balanceShow = normalizer.normalizeBalance(balance);
+        if(balance < 0)
+          balance = balance * -1;
 
-      newSimpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
+        let balanceShow = normalizer.normalizeBalance(balance);
+
+        newSimpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
+      }
     }
 
     if(newSimpleTrustlines?.length > 0) {
