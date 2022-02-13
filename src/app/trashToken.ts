@@ -604,6 +604,8 @@ export class TrashToken implements OnInit, OnDestroy {
           let offerResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
           if(offerResult && offerResult.success && offerResult.account && offerResult.account === this.xrplAccountInfo.Account && offerResult.testnet == this.isTestMode) {
             //payment ok!
+            this.convertedXrp = 0;
+
             let paymentCommand = {
               command: "tx",
               transaction: offerResult.txid
@@ -615,14 +617,13 @@ export class TrashToken implements OnInit, OnDestroy {
             console.log(JSON.stringify(offerCreateTransaction));
 
             if(offerCreateTransaction?.result?.meta) {
-              this.convertedXrp = 0;
               let balanceChanges = transactionParser.parseBalanceChanges(offerCreateTransaction.result.meta);
               console.log("balanceChanges: " + JSON.stringify(balanceChanges));
 
               if (Object.keys(balanceChanges).indexOf(this.xrplAccountInfo.Account) > -1) {
                 const mutations = balanceChanges[this.xrplAccountInfo.Account]
                 for(let m = 0; m < mutations.length;m++) {
-                  if(mutations[m].counterparty === '') {
+                  if(mutations[m].counterparty === '' && Number(mutations[m].value) > 0) {
                     //we have XRP
                     this.convertedXrp += Number(mutations[m].value);
                   }
@@ -671,28 +672,27 @@ export class TrashToken implements OnInit, OnDestroy {
   async sendToIssuer() {
     this.loadingData = true;
     try {
-      let issuerPayment:XummPostPayloadBodyJson = {
-        options: {
-          forceAccount: true
-        },
-        txjson: {
-          TransactionType: "Payment",
-          Account: this.xrplAccountInfo.Account,
-          Destination: this.selectedToken.issuer,
-          Amount: {
-            value: this.selectedToken.balance,
-            currency: this.selectedToken.currency,
-            issuer: this.selectedToken.issuer
-          }
-        }
-      }
-
       let payload:GenericBackendPostRequest = {
         options: {
           xrplAccount: this.xrplAccountInfo.Account,
-          pushDisabled: true
+          pushDisabled: true,
+          isRawTrx: true
         },
-        payload: issuerPayment
+        payload: {
+          options: {
+            forceAccount: true
+          },
+          txjson: {
+            TransactionType: "Payment",
+            Account: this.xrplAccountInfo.Account,
+            Destination: this.selectedToken.issuer,
+            Amount: {
+              value: this.selectedToken.balance,
+              currency: this.selectedToken.currency,
+              issuer: this.selectedToken.issuer
+            }
+          }
+        }
       }
 
       let message = await this.waitForTransactionSigning(payload);
