@@ -13,8 +13,16 @@ import { webSocket, WebSocketSubject} from 'rxjs/webSocket';
 import { XummTypes } from 'xumm-sdk';
 import { TypeWriter } from './utils/TypeWriter';
 import * as clipboard from 'copy-to-clipboard';
-import { XummPostPayloadBodyJson } from 'xumm-sdk/dist/src/types'
 import * as transactionParser from 'ripple-lib-transactionparser'
+
+//Trustset flags
+const tfClearFreeze = 0x200000;
+const tfClearNoRipple = 0x40000;
+const tfSetNoRipple = 0x20000;
+
+//Offercreate Flags
+const tfImmediateOrCancel = 0x40000;
+const tfSell = 0x80000;
 
 @Component({
   selector: 'trashToken',
@@ -48,6 +56,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
   defaultRippleSet:boolean = false;
 
+  issuerRequiresDestinationTag:boolean = false;
   checkboxSendToIssuer:boolean = false;
 
   transactionSuccessfull: Subject<void> = new Subject<void>();
@@ -90,7 +99,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
     this.loadingData = true;
 
-    //await this.loadAccountData("r9N4v3cWxfh4x6yUNjxNy3DbWUgbzMBLdk");
+    this.loadFeeReserves();
 
     this.originalOwnerCount = this.xrplAccountInfo?.OwnerCount;
 
@@ -167,8 +176,6 @@ export class TrashToken implements OnInit, OnDestroy {
     if (typeof document.addEventListener === 'function') {
       document.addEventListener("message", event => this.handleOverlayEvent(event));
     }
-
-    await this.loadFeeReserves();
 
     this.tw = new TypeWriter(["XRPL Services xApp", "created by nixerFFM", "XRPL Services xApp"], t => {
       this.title = t;
@@ -284,6 +291,12 @@ export class TrashToken implements OnInit, OnDestroy {
   async loadAccountData(xrplAccount: string) {
     try {
       console.log("loading account data...");
+
+      //get connected node
+      let server_info = { command: "server_info" };
+
+      let serverInfoResponse = await this.xrplWebSocket.getWebsocketMessage("token-trasher", server_info, this.isTestMode);
+
       this.infoLabel2 = "loading " + xrplAccount;
       if(xrplAccount && isValidXRPAddress(xrplAccount)) {
         this.loadingData = true;
@@ -321,8 +334,9 @@ export class TrashToken implements OnInit, OnDestroy {
         let accountLinesCommand:any = {
           command: "account_lines",
           account: xrplAccount,
-          ledger_index: "validated",
-          limit: 1000
+          ledger_index: serverInfoResponse.result.info.validated_ledger.seq,
+          //ledger_index: "validated",
+          limit: 200
         }
 
         console.log("starting to read account lines!")
@@ -332,14 +346,17 @@ export class TrashToken implements OnInit, OnDestroy {
         if(accountLines?.result?.lines) {
           let trustlines = accountLines?.result?.lines;
   
-          let marker = accountLines.result.marker
+          let marker = accountLines.result.marker;
   
           console.log("marker: " + marker);
+
   
           while(marker) {
               console.log("marker: " + marker);
               accountLinesCommand.marker = marker;
               accountLinesCommand.ledger_index = accountLines.result.ledger_index;
+
+              //await this.xrplWebSocket.getWebsocketMessage("token-trasher", server_info, this.isTestMode);
   
               accountLines = await this.xrplWebSocket.getWebsocketMessage('token-trasher', accountLinesCommand, this.isTestMode);
   
@@ -355,32 +372,14 @@ export class TrashToken implements OnInit, OnDestroy {
           console.log("finished to read account lines!")
 
           this.existingAccountLines = trustlines;
-          this.simpleTrustlines = [];
 
-          for(let i = 0; i < this.existingAccountLines.length; i++) {
-            let issuer:string = this.existingAccountLines[i].account;
-            let balance = Number(this.existingAccountLines[i].balance);
-            let currency = this.existingAccountLines[i].currency;
-            let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
-
-            if(balance < 0)
-              balance = balance * -1;
-
-            let balanceShow = normalizer.normalizeBalance(balance);
-
-            this.simpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
-          }
         } else {
           this.existingAccountLines = [];
         }
 
         this.xrplAccountInfo = accInfo;
 
-        if(this.simpleTrustlines?.length > 0) {
-          this.simpleTrustlines = this.simpleTrustlines.sort((a,b) => {
-            return a.currencyShow.localeCompare(b.currencyShow);
-          });
-        }
+        this.resetSimpleTrustlineList();
 
         console.log("ACCOUNT_INFO: " + JSON.stringify(this.xrplAccountInfo));
         console.log("ACCOUNT_LINES: " + JSON.stringify(this.existingAccountLines));
@@ -388,6 +387,50 @@ export class TrashToken implements OnInit, OnDestroy {
       } else {
         this.xrplAccountInfo = "no account"
         this.existingAccountLines = [];
+      }
+    } catch(err) {
+      this.errorLabel = JSON.stringify(err);
+      this.handleError(err);
+    }
+  }
+
+  async loadIssuerAccountData(issuerAccount: string) {
+    try {
+      console.log("loading account data...");
+      this.infoLabel2 = "loading " + issuerAccount;
+      if(issuerAccount && isValidXRPAddress(issuerAccount)) {
+        this.loadingData = true;
+        
+        let account_info_request:any = {
+          command: "account_info",
+          account: issuerAccount,
+          "strict": true,
+        }
+
+        let accInfo:any = null;
+
+        let message_acc_info:any = await this.xrplWebSocket.getWebsocketMessage("token-trasher", account_info_request, this.isTestMode);
+        //console.log("xrpl-transactions account info: " + JSON.stringify(message_acc_info));
+        this.infoLabel = JSON.stringify(message_acc_info);
+        if(message_acc_info && message_acc_info.status && message_acc_info.type && message_acc_info.type === 'response') {
+          if(message_acc_info.status === 'success' && message_acc_info.result && message_acc_info.result.account_data) {
+            accInfo = message_acc_info.result.account_data;
+
+            this.issuerRequiresDestinationTag = flagUtil.isRequireDestinationTagEnabled(accInfo.Flags)
+
+            console.log("issuer accInfo: " + JSON.stringify(accInfo));
+
+            this.infoLabel = JSON.stringify(accInfo);
+
+            //if account exists, check for already issued currencies
+          } else {
+            accInfo = message_acc_info;
+          }
+        } else {
+          accInfo = "no account";
+        }
+      } else {
+
       }
     } catch(err) {
       this.errorLabel = JSON.stringify(err);
@@ -426,6 +469,32 @@ export class TrashToken implements OnInit, OnDestroy {
     this.simpleTrustlines = newSimpleTrustline;
   }
 
+  resetSimpleTrustlineList() {
+    let newSimpleTrustlines:SimpleTrustline[] = []
+
+    for(let i = 0; i < this.existingAccountLines.length; i++) {
+      let issuer:string = this.existingAccountLines[i].account;
+      let balance = Number(this.existingAccountLines[i].balance);
+      let currency = this.existingAccountLines[i].currency;
+      let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
+
+      if(balance < 0)
+        balance = balance * -1;
+
+      let balanceShow = normalizer.normalizeBalance(balance);
+
+      newSimpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
+    }
+
+    if(newSimpleTrustlines?.length > 0) {
+      newSimpleTrustlines = newSimpleTrustlines.sort((a,b) => {
+        return a.currencyShow.localeCompare(b.currencyShow);
+      });
+    }
+
+    this.simpleTrustlines = newSimpleTrustlines;
+  }
+
   async selectToken(token: SimpleTrustline) {
     this.loadingData = true;
     try {
@@ -434,21 +503,10 @@ export class TrashToken implements OnInit, OnDestroy {
       this.selectedToken = token;
       this.searchString = null;
 
-      this.simpleTrustlines = []
+      //loading issuer data
+      await this.loadIssuerAccountData(this.selectedToken.issuer);
 
-      for(let i = 0; i < this.existingAccountLines.length; i++) {
-        let issuer:string = this.existingAccountLines[i].account;
-        let balance = Number(this.existingAccountLines[i].balance);
-        let currency = this.existingAccountLines[i].currency;
-        let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
-
-        if(balance < 0)
-          balance = balance * -1;
-
-        let balanceShow = normalizer.normalizeBalance(balance);
-
-        this.simpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
-      }
+      this.resetSimpleTrustlineList();
 
       if(this.selectedToken.balance > 0) {
         if(this.usePathFind) {
@@ -586,7 +644,7 @@ export class TrashToken implements OnInit, OnDestroy {
             txjson: {
               TransactionType: "OfferCreate",
               Account: this.xrplAccountInfo.Account,
-              Flags: 655360,
+              Flags: (tfImmediateOrCancel + tfSell),
               TakerGets: {
                 issuer: this.selectedToken.issuer,
                 currency: this.selectedToken.currency,
@@ -695,6 +753,10 @@ export class TrashToken implements OnInit, OnDestroy {
         }
       }
 
+      if(this.issuerRequiresDestinationTag) {
+        payload.payload.txjson.DestinationTag = 1
+      }
+
       let message = await this.waitForTransactionSigning(payload);
 
       if(message && message.payload_uuidv4 && message.signed) {
@@ -732,12 +794,14 @@ export class TrashToken implements OnInit, OnDestroy {
         txjson: {
           Account: this.xrplAccountInfo.Account,
           TransactionType: "TrustSet",
-          Flags: 2097152 + (this.defaultRippleSet ? 262144 : 131072),
+          Flags: (tfClearFreeze + (this.defaultRippleSet ? tfClearNoRipple : tfSetNoRipple)),
           LimitAmount: {
             currency: this.selectedToken.currency,
             issuer: this.selectedToken.issuer,
             value: 0
-          }
+          },
+          QualityIn: 0,
+          QualityOut: 0
         },
         custom_meta: {
           instruction: "- Remove the Trustline.\n\nPlease sign with the selected Account!"
@@ -828,6 +892,8 @@ export class TrashToken implements OnInit, OnDestroy {
     this.originalOwnerCount = this.xrplAccountInfo?.OwnerCount;
 
     this.sessionCounter++;
+
+    this.resetSimpleTrustlineList();
 
     this.moveBack();
     this.moveBack();
