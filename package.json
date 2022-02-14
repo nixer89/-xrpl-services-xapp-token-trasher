@@ -1,12 +1,14 @@
 {
   "name": "xrpl-services-xapp-token-trasher",
-  "version": "0.0.3",
+  "version": "1.0.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --port 4204 --open",
     "build": "ng build --configuration production",
     "upload": "ng build --configuration production & aws s3 --profile myevride rm s3://tokentrasher-xapp.xrpl.services/ --recursive & aws s3 --profile myevride cp ./dist/xrpl-services-xapp-token-trasher s3://tokentrasher-xapp.xrpl.services/ --recursive --include '*' --acl public-read --cache-control public,max-age=604800,no-transform",
     "invalidate": "aws cloudfront --profile myevride create-invalidation --distribution-id EK3S1OSS5K09Y --paths /*",
+    "upload-test": "ng build --configuration production & aws s3 --profile myevride rm s3://tokentrasher-test-xapp.xrpl.services/ --recursive & aws s3 --profile myevride cp ./dist/xrpl-services-xapp-token-trasher s3://tokentrasher-test-xapp.xrpl.services/ --recursive --include '*' --acl public-read --cache-control public,max-age=604800,no-transform",
+    "invalidate-test": "aws cloudfront --profile myevride create-invalidation --distribution-id E1RUZWPLBWJTAT --paths /*",
     "test": "ng test",
     "lint": "ng lint",
     "e2e": "ng e2e"

@@ -95,8 +95,8 @@
 
         <div *ngIf="selectedToken && canConvert && convertionStarted && !loadingData" style="width: 100%;" fxLayout="column" fxLayoutAlign="center center" fxLayoutGap="0.5em">
 
-          <mat-card class="mat-card-green floatcenter" *ngIf="canConvert && convertionStarted && convertedXrp > 0" fxLayout="column" fxLayoutGap="0.5em" style="width: 100%;">
-            <label>You have successfully exchanged some of your token for {{convertedXrp}} XRP.</label>
+          <mat-card class="mat-card-green floatcenter" *ngIf="canConvert && convertionStarted && gainedFromConverting > 0" fxLayout="column" fxLayoutGap="0.5em" style="width: 100%;">
+            <label>You have successfully exchanged {{selectedToken && selectedToken.balance === 0 ? 'all' : 'some'}} some of your token for {{gainedFromConverting}} XRP.</label>
             <div *ngIf="selectedToken && selectedToken.balance > 0">
               <label>The rest can not be exchanged and we will send it back to the issuer to get rid of it!</label>
               <label>After that, we can remove the trustline!</label>
@@ -104,7 +104,7 @@
           </mat-card>
         </div>
 
-        <div *ngIf="selectedToken && selectedToken.balance > 0 && (!canConvert || (canConvert && convertionStarted && convertedXrp === 0)) && !loadingData" style="width: 100%;" fxLayout="column" fxLayoutAlign="center center" fxLayoutGap="0.5em">
+        <div *ngIf="selectedToken && selectedToken.balance > 0 && (!canConvert || (canConvert && convertionStarted && gainedFromConverting === 0)) && !loadingData" style="width: 100%;" fxLayout="column" fxLayoutAlign="center center" fxLayoutGap="0.5em">
           <mat-card class="mat-card-orange floatcenter" fxLayout="column" fxLayoutAlign="center center" style="width: 100%;">
             <label>Unfortunately, this token can not be converted into XRP.</label>
             <label>We have to send it back to the issuer to get rid of it!</label>
@@ -163,26 +163,46 @@
         </div>
 
         <div *ngIf="tokenHasBeenRemoved() && !loadingData" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="start center" style="width: 100%;">
-          <mat-card class="mat-card-green floatcenter" fxLayout="row" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
-            <i class="material-icons xumm-green" style="font-size: 3em;">
-                check_circle_outline
-            </i>
-            <label>The token {{selectedToken && selectedToken.currencyShow}} has been removed.</label>
-          </mat-card>
           <mat-card class="mat-card-green floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
-            <label>Your account gained {{ownerReserve/1000000}} XRP from removing the trustline</label>
-            <label *ngIf="convertedXrp && convertedXrp > 0">You also gained {{convertedXrp}} XRP from converting the token into XRP</label>
+            <div class="floatcenter" fxLayout="row" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+              <i class="material-icons xumm-green" style="font-size: 3em;">
+                check_circle_outline
+              </i>
+              <label>The token {{selectedToken && selectedToken.currencyShow}} has been removed.</label>
+            </div>
+
+            <div *ngIf="gainedFromRemoving" class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+              <label>Your account gained {{gainedFromRemoving}} XRP from removing the Trustline</label>
+              <label *ngIf="gainedFromConverting && gainedFromConverting > 0">You also gained {{gainedFromConverting}} XRP from converting the token into XRP</label>
+            </div>
           </mat-card>
 
-          <div *ngIf="(convertedXrp && convertedXrp > 1) || showDonation()" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="start center">
-            <mat-card class="mat-card-green floatcenter" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center">
-              <label *ngIf="convertedXrp && convertedXrp > 1">You gained a total of {{convertedXrp + (ownerReserve/1000000)}}.</label>
-              <label>Please consider a donation for using this free of charge service. Thank you!</label>
-            </mat-card>
-            <button mat-raised-button color="primary" style="width: 100%;" (click)="makeDonation()">Make a donation</button>
+          <div *ngIf="existingOffersForToken && existingOffersForToken.length > 0 && removedOffersForToken" fxLayout="column" fxLayoutGap="1em" fxLayoutAlign="start center" style="width: 100%;">
+            <div *ngIf="existingOffersForToken.length > removedOffersForToken.length" fxLayout="column" fxLayoutGap="1em" fxLayoutAlign="start center" style="width: 100%;">
+              <mat-card class="mat-card-orange floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+                <label>We found that you still have {{existingOffersForToken && (existingOffersForToken.length - removedOffersForToken.length)}} open Offers on the XRPL Dex for the token you just removed.</label>
+                <label>Do you want to remove ALL {{existingOffersForToken && (existingOffersForToken.length - removedOffersForToken.length)}} Offers to free up even more XRP?</label>
+              </mat-card>
+              <button mat-raised-button style="width: 100%;" color="primary" (click)="removeAllOffers()">Remove All Offers</button>
+            </div>
+  
+            <div *ngIf="removedOffersForToken && removedOffersForToken.length > 0">
+              <mat-card class="mat-card-green floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+                <label>Your account just gained another {{ gainedFromOffers }} XRP from removing Offers</label>
+              </mat-card>
+            </div>
           </div>
+
+          <div *ngIf="(gainedTotal && gainedTotal > 2.5 ) || showDonation()" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="start center" style="margin-top: 1em">
+            <mat-card class="mat-card-green floatcenter" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center">
+              <label *ngIf="gainedTotal && gainedTotal > 2.5">You gained a total of {{gainedTotal}} XRP!</label>
+              <label>Please consider making a donation for using this free of charge service. Thank you!</label>
+            </mat-card>
+            <button mat-raised-button color="primary" style="width: 100%;" (click)="makeDonation()">Make A Donation</button>
+          </div>
+
           <div style="padding-top: 0.5em; width: 100%" fxLayout="column" fxLayoutGap="1em">
-            <button mat-raised-button style="width: 100%;" color="primary" (click)="trashAnotherOne()">Remove another one!</button>
+            <button mat-raised-button style="width: 100%;" color="primary" (click)="trashAnotherOne()">Remove Another Token!</button>
             <button mat-raised-button style="width: 100%;" class="xumm-grey-background" (click)="close()">Close xApp</button>
           </div>
         </div>
