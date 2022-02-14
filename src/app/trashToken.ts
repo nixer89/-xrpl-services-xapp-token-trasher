@@ -133,11 +133,15 @@ export class TrashToken implements OnInit, OnDestroy {
           try {
             //read origin data
             if(ottData.issuer && ottData.currency) {
+              //console.log("having issuer and currency")
               //pre selected token!
-              let preselect = this.simpleTrustlines.filter(trustline => { return ottData.issuer === trustline.issuer && ottData.currency === trustline.currency });
+              let preselect = this.simpleTrustlines.filter(trustline => ottData.issuer === trustline.issuer && ottData.currency === trustline.currency );
 
-              if(preselect && preselect.length == 1) {
-                await this.selectToken(preselect[0])
+              //console.log("preselect: " + JSON.stringify(preselect));
+
+              if(preselect && preselect.length === 1) {
+                //console.log("select token!");
+                setTimeout( () => this.selectToken(preselect[0]), 100);
               }
             }
           } catch(err) {
