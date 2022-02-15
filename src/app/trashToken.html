@@ -124,12 +124,12 @@
           </div>
         </div>
 
-        <div *ngIf="selectedToken && selectedToken.balance === 0 && !loadingData" style="width: 100%" fxLayout="column" fxLayoutAlign="start center">
-          <mat-card class="mat-card-green floatcenter" fxLayout="row" fxLayoutGap="0.5em" fxLayoutAlign="start center" style="width: 100%">
+        <div *ngIf="selectedToken && selectedToken.balance === 0 && !loadingData" style="width: 100%" fxLayout="column" fxLayoutAlign="center center">
+          <mat-card class="mat-card-green floatcenter" fxLayout="row" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%">
             <i class="material-icons xumm-green" style="font-size: 3em;">
                 check_circle_outline
             </i>
-            <div fxLayout="column" fxLayoutGap="0.3em">
+            <div fxLayout="column" fxLayoutGap="0.3em" class="floatcenter" fxLayoutGap="0.5em" fxLayoutAlign="center center">
               <label>Your Token balance is now 0.</label>
               <label>We can now remove the trustline!</label>
             </div>
@@ -193,10 +193,10 @@
             </div>
           </div>
 
-          <div *ngIf="(gainedTotal && gainedTotal > 2.5 ) || showDonation()" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="start center" style="margin-top: 1em">
+          <div *ngIf="(gainedTotal && gainedTotal >= 2 ) || showDonation()" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="start center" style="margin-top: 1em">
             <mat-card class="mat-card-green floatcenter" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center">
-              <label *ngIf="gainedTotal && gainedTotal > 2.5">You gained a total of {{gainedTotal}} XRP!</label>
-              <label>Please consider making a donation for using this free of charge service. Thank you!</label>
+              <label *ngIf="gainedTotal && gainedTotal >= 2">YOU GAINED A TOTAL OF {{gainedTotal}} XRP!</label>
+              <label>Please consider making a small donation to keep this service free of charge. Thank you!</label>
             </mat-card>
             <button mat-raised-button color="primary" style="width: 100%;" (click)="makeDonation()">Make A Donation</button>
           </div>
