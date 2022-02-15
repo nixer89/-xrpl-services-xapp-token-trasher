@@ -57,6 +57,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
   canConvert:boolean = false;
   convertionStarted:boolean = false;
+  skipConvertion:boolean = false;
 
   gainedFromConverting:number = 0;
   gainedFromRemoving:number = 0;
@@ -66,6 +67,8 @@ export class TrashToken implements OnInit, OnDestroy {
   defaultRippleSet:boolean = false;
 
   issuerRequiresDestinationTag:boolean = false;
+  xrplclusterRequiresDestinationTag:boolean = false;
+
   checkboxSendToIssuer:boolean = false;
 
   transactionSuccessfull: Subject<void> = new Subject<void>();
@@ -526,14 +529,16 @@ export class TrashToken implements OnInit, OnDestroy {
     this.loadingData = true;
     try {
       this.moveNext();
+
+      this.resetVariables();
+
       console.log("SELECTED: " + JSON.stringify(token));
       this.selectedToken = token;
       this.searchString = null;
+      this.skipConvertion = false;
 
       //loading issuer data
       await this.loadIssuerAccountData(this.selectedToken.issuer);
-
-      this.resetSimpleTrustlineList();
 
       if(this.selectedToken.balance > 0) {
         if(this.usePathFind) {
@@ -592,6 +597,10 @@ export class TrashToken implements OnInit, OnDestroy {
     }
 
     this.loadingData = false;
+  }
+
+  skipSwap() {
+    this.skipConvertion = true;
   }
 
   async convertTokenIntoXrp() {
@@ -785,8 +794,8 @@ export class TrashToken implements OnInit, OnDestroy {
         }
       }
 
-      if(this.issuerRequiresDestinationTag) {
-        payload.payload.txjson.DestinationTag = 1
+      if(this.issuerRequiresDestinationTag || this.xrplclusterRequiresDestinationTag) {
+        payload.payload.txjson.DestinationTag = 13371337
       }
 
       let message = await this.waitForTransactionSigning(payload);
@@ -803,6 +812,8 @@ export class TrashToken implements OnInit, OnDestroy {
           if(updatedToken && updatedToken.length == 1) {
             this.selectedToken = updatedToken[0];
           }
+        } else {
+          //check if "local error missing destination tag"
         }
       }
     } catch(err) {
@@ -1039,18 +1050,21 @@ export class TrashToken implements OnInit, OnDestroy {
     this.loadingData = false;
   }
 
-  trashAnotherOne() {
-    
+  resetVariables() {
     this.selectedToken = this.pathFind = this.searchString =  null;
-    this.canConvert = this.convertionStarted = this.checkboxSendToIssuer = false;
+    this.canConvert = this.convertionStarted = this.skipConvertion = this.checkboxSendToIssuer = this.issuerRequiresDestinationTag = this.xrplclusterRequiresDestinationTag = false;
 
     this.gainedFromConverting = this.gainedFromRemoving = this.gainedFromOffers = this.gainedTotal = 0;
 
-    this.sessionCounter++;
-
     this.existingOffersForToken = this.removedOffersForToken = [];
-
     this.resetSimpleTrustlineList();
+  }
+
+  trashAnotherOne() {
+    
+    this.resetVariables();
+
+    this.sessionCounter++;
 
     this.moveBack();
     this.moveBack();
