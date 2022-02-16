@@ -5,8 +5,6 @@
 
     private static _instance: CheckLiquidity;
 
-    private isRunning:boolean = false;
-
     private constructor() { }
 
     public static get Instance(): CheckLiquidity
@@ -19,13 +17,8 @@
 
       try {
 
-        if(!this.isRunning) {
-
-          this.isRunning = true;
-
           const pair = {issuer: issuer, currency: currency, displayName: currency};
           
-        
           let data = await Promise.all(
                 await Promise.all([amount].map(async a => {
                         
@@ -45,12 +38,10 @@
           );
 
           return data;
-        }
+
       } catch(err) {
         console.log(err)
         return null;
       }
-
-      return null;
     }
 }

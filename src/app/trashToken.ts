@@ -15,6 +15,7 @@ import { TypeWriter } from './utils/TypeWriter';
 import * as clipboard from 'copy-to-clipboard';
 import * as transactionParser from 'ripple-lib-transactionparser'
 import { CheckLiquidity } from './utils/liquidity/checkLiquidityForToken';
+import { MatchMedia } from '@angular/flex-layout/core/match-media';
 
 //Trustset flags
 const tfClearFreeze = 0x200000;
@@ -680,7 +681,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
             if(paymentTransaction?.result?.meta?.delivered_amount) {
               this.gainedFromConverting = Number(paymentTransaction.result.meta.delivered_amount)/1000000;
-              this.gainedTotal += this.gainedFromConverting;
+              this.gainedTotal = Math.round((this.gainedTotal + this.gainedFromConverting) * 1000000) / 1000000;
             }
 
           } else {
@@ -754,7 +755,7 @@ export class TrashToken implements OnInit, OnDestroy {
             }
 
             if(this.gainedFromConverting > 0) {
-              this.gainedTotal += this.gainedFromConverting;
+              this.gainedTotal = Math.round((this.gainedTotal + this.gainedFromConverting) * 1000000) / 1000000;
             }
 
             //console.log("this.convertedXrp: " + this.gainedFromConverting);
@@ -892,7 +893,7 @@ export class TrashToken implements OnInit, OnDestroy {
           if(this.xrplAccountInfo.Account == info.account) {
             await this.loadAccountData(this.xrplAccountInfo.Account);
             this.gainedFromRemoving = (this.ownerReserve / 1000000);
-            this.gainedTotal += (this.ownerReserve / 1000000);
+            this.gainedTotal = (Math.round(this.gainedTotal * 1000000 + this.ownerReserve) / 1000000);
             await this.loadOffers();
           } else {
             this.snackBar.open("You signed with the wrong account. Please sign with the selected Account!", null, {panelClass: 'snackbar-failed', duration: 5000, horizontalPosition: 'center', verticalPosition: 'top'});
@@ -1014,8 +1015,8 @@ export class TrashToken implements OnInit, OnDestroy {
           if(info && info.success && info.account && info.account && info.testnet == this.isTestMode) {
             if(this.xrplAccountInfo.Account == info.account) {
               this.removedOffersForToken.push(this.existingOffersForToken[this.removedOffersForToken.length]);
-              this.gainedFromOffers += (this.ownerReserve / 1000000);
-              this.gainedTotal += (this.ownerReserve / 1000000);
+              this.gainedFromOffers = Math.round(this.gainedFromOffers * 1000000 + this.ownerReserve) / 1000000;
+              this.gainedTotal = Math.round(this.gainedTotal * 1000000 + this.ownerReserve) / 1000000;
               await this.removeAllOffers();
             } else {
               this.snackBar.open("You signed with the wrong account. Please sign with the selected Account!", null, {panelClass: 'snackbar-failed', duration: 5000, horizontalPosition: 'center', verticalPosition: 'top'});
