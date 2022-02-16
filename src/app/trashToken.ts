@@ -14,6 +14,7 @@ import { XummTypes } from 'xumm-sdk';
 import { TypeWriter } from './utils/TypeWriter';
 import * as clipboard from 'copy-to-clipboard';
 import * as transactionParser from 'ripple-lib-transactionparser'
+import { CheckLiquidity } from './utils/liquidity/checkLiquidityForToken';
 
 //Trustset flags
 const tfClearFreeze = 0x200000;
@@ -58,6 +59,9 @@ export class TrashToken implements OnInit, OnDestroy {
   canConvert:boolean = false;
   convertionStarted:boolean = false;
   skipConvertion:boolean = false;
+  convertAmountXRP:number = null;
+
+  liquidityChecker:CheckLiquidity = null;
 
   gainedFromConverting:number = 0;
   gainedFromRemoving:number = 0;
@@ -111,13 +115,15 @@ export class TrashToken implements OnInit, OnDestroy {
 
     this.loadingData = true;
 
+    this.liquidityChecker = CheckLiquidity.Instance;
+
     this.loadFeeReserves();
 
     //await this.loadAccountData("rNixerUVPwrhxGDt4UooDu6FJ7zuofvjCF");
 
     this.ottReceived = this.ottChanged.subscribe(async ottData => {
       this.infoLabel = "ott received: " + JSON.stringify(ottData);
-      console.log("ottReceived: " + JSON.stringify(ottData));
+      //console.log("ottReceived: " + JSON.stringify(ottData));
 
       if(ottData) {
 
@@ -335,7 +341,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
             this.defaultRippleSet = flagUtil.isDefaultRippleEnabled(accInfo.Flags)
 
-            console.log("accInfo: " + JSON.stringify(accInfo));
+            //console.log("accInfo: " + JSON.stringify(accInfo));
 
             this.infoLabel = JSON.stringify(accInfo);
 
@@ -356,7 +362,7 @@ export class TrashToken implements OnInit, OnDestroy {
           limit: 200
         }
 
-        console.log("starting to read account lines!")
+        //console.log("starting to read account lines!")
 
         let accountObjects = await this.xrplWebSocket.getWebsocketMessage('token-trasher', accountLinesCommand, this.isTestMode);
         
@@ -370,7 +376,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
   
           while(marker) {
-              console.log("marker: " + marker);
+              //console.log("marker: " + marker);
               accountLinesCommand.marker = marker;
               accountLinesCommand.ledger_index = accountObjects.result.ledger_index;
 
@@ -400,7 +406,7 @@ export class TrashToken implements OnInit, OnDestroy {
         this.resetSimpleTrustlineList();
 
         //console.log("ACCOUNT_INFO: " + JSON.stringify(this.xrplAccountInfo));
-        console.log("ACCOUNT_LINES: " + JSON.stringify(this.existingAccountLines));
+        //console.log("ACCOUNT_LINES: " + JSON.stringify(this.existingAccountLines));
         //console.log("ACCOUNT_LINES_SIMPLE: " + JSON.stringify(this.simpleTrustlines));
       } else {
         this.xrplAccountInfo = "no account"
@@ -420,7 +426,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
   async loadIssuerAccountData(issuerAccount: string) {
     try {
-      console.log("loading account data...");
+      //console.log("loading account data...");
       this.infoLabel2 = "loading " + issuerAccount;
       if(issuerAccount && isValidXRPAddress(issuerAccount)) {
         this.loadingData = true;
@@ -464,7 +470,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
   applyFilter() {
 
-    console.log("search string: " + this.searchString);
+    //console.log("search string: " + this.searchString);
 
     let newSimpleTrustline:SimpleTrustline[] = [];
 
@@ -532,7 +538,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
       this.resetVariables();
 
-      console.log("SELECTED: " + JSON.stringify(token));
+      //console.log("SELECTED: " + JSON.stringify(token));
       this.selectedToken = token;
       this.searchString = null;
       this.skipConvertion = false;
@@ -560,32 +566,53 @@ export class TrashToken implements OnInit, OnDestroy {
           if(this.pathFind?.result?.alternatives && this.pathFind.result.alternatives.length > 0 && this.pathFind.result.alternatives[0].destination_amount && Number(this.pathFind.result.alternatives[0].destination_amount) > 5000) {
             //WE CAN DO PATHFINDING! YAY!
             this.canConvert = true;
+            this.convertAmountXRP = this.pathFind.result.alternatives[0].destination_amount / 1000000;
           } else {
-            console.log("path find not possible!")
+            this.canConvert = false;
+            //console.log("path find not possible!")
           }
         } else {
-          //check path finding!
-          let bookOfferRequest = {
-            command: "book_offers",
-            taker: this.xrplAccountInfo.Account,
-            taker_gets: {
-              currency: "XRP"
-            },
-            taker_pays: {
-              currency: this.selectedToken.currency,
-              issuer: this.selectedToken.issuer
-            },
-            limit: 10
-          }
+          try {
+            //check liquidity
 
-          let bookOffers = await this.xrplWebSocket.getWebsocketMessage('token-trasher', bookOfferRequest, this.isTestMode);
+            let data = await this.liquidityChecker.checkLiquidity(this.selectedToken.issuer, this.selectedToken.currency, this.selectedToken.balance);
 
-          if(bookOffers?.result?.offers && bookOffers.result.offers.length > 0) {
-            //WE CAN DO PATHFINDING! YAY!
-            this.canConvert = true;
-          } else {
-            console.log("offer convertion not possible!")
-          }
+            //console.log("liquidity data: " + JSON.stringify(data));
+
+            if(data && data[0] && data[0].amount && data[0].rate && data[0].rate > 0) {
+              this.canConvert = true;
+              this.convertAmountXRP = Math.floor((data[0].amount * data[0].rate) * 1000000) / 1000000
+            } else {
+              this.canConvert = false;
+              this.convertAmountXRP = null;
+            }
+          } catch(err) {
+            //some error thrown, do it the old way!
+            //check order book!
+            
+            let bookOfferRequest = {
+              command: "book_offers",
+              taker: this.xrplAccountInfo.Account,
+              taker_gets: {
+                currency: "XRP"
+              },
+              taker_pays: {
+                currency: this.selectedToken.currency,
+                issuer: this.selectedToken.issuer
+              },
+              limit: 10
+            }
+
+            let bookOffers = await this.xrplWebSocket.getWebsocketMessage('token-trasher', bookOfferRequest, this.isTestMode);
+
+            if(bookOffers?.result?.offers && bookOffers.result.offers.length > 0) {
+              //WE CAN DO OFFER! YAY!
+              this.canConvert = true;
+            } else {
+              this.canConvert = false;
+              //console.log("offer convertion not possible!")
+            }
+          }          
         }
       }
 
@@ -708,12 +735,12 @@ export class TrashToken implements OnInit, OnDestroy {
 
             let offerCreateTransaction = await this.xrplWebSocket.getWebsocketMessage('token-trasher', paymentCommand, this.isTestMode);
 
-            console.log("offer create transaction: ");
-            console.log(JSON.stringify(offerCreateTransaction));
+            //console.log("offer create transaction: ");
+            //console.log(JSON.stringify(offerCreateTransaction));
 
             if(offerCreateTransaction?.result?.meta) {
               let balanceChanges = transactionParser.parseBalanceChanges(offerCreateTransaction.result.meta);
-              console.log("balanceChanges: " + JSON.stringify(balanceChanges));
+              //console.log("balanceChanges: " + JSON.stringify(balanceChanges));
 
               if (Object.keys(balanceChanges).indexOf(this.xrplAccountInfo.Account) > -1) {
                 const mutations = balanceChanges[this.xrplAccountInfo.Account]
@@ -730,7 +757,7 @@ export class TrashToken implements OnInit, OnDestroy {
               this.gainedTotal += this.gainedFromConverting;
             }
 
-            console.log("this.convertedXrp: " + this.gainedFromConverting);
+            //console.log("this.convertedXrp: " + this.gainedFromConverting);
           } else {
             //payment not success
             this.gainedFromConverting = 0;
@@ -757,7 +784,7 @@ export class TrashToken implements OnInit, OnDestroy {
         this.selectedToken = updatedToken[0];
       }
 
-      console.log("selectedToken: " + JSON.stringify(this.selectedToken));
+      //console.log("selectedToken: " + JSON.stringify(this.selectedToken));
 
     } catch(err) {
       console.log("ERROR CONVERTING INTO XRP");
@@ -886,7 +913,7 @@ export class TrashToken implements OnInit, OnDestroy {
   }
 
   async loadOffers() {
-    console.log("loading offers!");
+    //console.log("loading offers!");
     this.loadingData = true;
     try {
       //get connected node
@@ -902,11 +929,11 @@ export class TrashToken implements OnInit, OnDestroy {
         limit: 200
       }
 
-      console.log("starting to read account offers!")
+      //console.log("starting to read account offers!")
 
       let accountOffers = await this.xrplWebSocket.getWebsocketMessage('token-trasher', accountOffersCommand, this.isTestMode);
 
-      console.log("offer response: " + JSON.stringify(accountOffers));
+      //console.log("offer response: " + JSON.stringify(accountOffers));
       
       if(accountOffers?.result?.offers) {
         let offers:any[] = accountOffers?.result?.offers;
@@ -918,7 +945,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
 
         while(marker) {
-            console.log("marker: " + marker);
+            //console.log("marker: " + marker);
             accountOffersCommand.marker = marker;
             accountOffersCommand.ledger_index = accountOffers.result.ledger_index;
 
@@ -935,13 +962,13 @@ export class TrashToken implements OnInit, OnDestroy {
             }
         }
 
-        console.log("finished to read account offers!");
+        //console.log("finished to read account offers!");
 
-        console.log("all offers: " + JSON.stringify(offers));
+        //console.log("all offers: " + JSON.stringify(offers));
 
         this.existingOffersForToken = offers.filter(offer => offer?.taker_gets?.issuer === this.selectedToken.issuer || offer?.taker_pays?.issuer === this.selectedToken.issuer);
 
-        console.log("existingOffersForToken: " + JSON.stringify(this.existingOffersForToken));
+        //console.log("existingOffersForToken: " + JSON.stringify(this.existingOffersForToken));
 
       } else {
         this.existingOffersForToken = [];
@@ -1051,7 +1078,7 @@ export class TrashToken implements OnInit, OnDestroy {
   }
 
   resetVariables() {
-    this.selectedToken = this.pathFind = this.searchString =  null;
+    this.selectedToken = this.pathFind = this.searchString = this.convertAmountXRP = null;
     this.canConvert = this.convertionStarted = this.skipConvertion = this.checkboxSendToIssuer = this.issuerRequiresDestinationTag = this.xrplclusterRequiresDestinationTag = false;
 
     this.gainedFromConverting = this.gainedFromRemoving = this.gainedFromOffers = this.gainedTotal = 0;

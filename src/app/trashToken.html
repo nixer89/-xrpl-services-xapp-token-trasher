@@ -84,10 +84,18 @@
 
         <div *ngIf="selectedToken && selectedToken.balance > 0 && canConvert && !convertionStarted && !skipConvertion && !loadingData" fxLayout="column" fxLayoutGap="1em" fxLayoutAlign="center center" style="width: 100%;">
           <mat-card class="mat-card-orange floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
-            <label>You can convert some of your {{selectedToken && selectedToken.currencyShow}} to XRP.</label>
-            <label>The XRP Ledger will try to convert as much of your Token into XRP as possible to the best available rate.</label>
+            <div *ngIf="convertAmountXRP" class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+              <label>You can convert some (or all) of your {{selectedToken && selectedToken.currencyShow}} into roughly {{convertAmountXRP}} XRP.</label>
+              <label>This amount is subject to change and can not be guaranteed because order books are a moving target.</label>
+            </div>
+            <div *ngIf="!convertAmountXRP" class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+              <label>You can convert some (or all) of your {{selectedToken && selectedToken.currencyShow}} to XRP.</label>
+              <label>The XRP Ledger will try to convert as much of your Token into XRP as possible.</label>
+            </div>
+
             <label>&nbsp;</label>
-            <label>We will set a very low XRP value to exchange for (1 Drop or 0.000001 XRP). But don't worry, the XRP Ledger will give you always the best available rate and you will receive more XRP than shown.</label>
+            <label>We will set a very low XRP value in the Offer (1 Drop or 0.000001 XRP).</label>
+            <label>But don't worry, the XRP Ledger will always give you the best possible rate.</label>
             <button mat-raised-button class="btn" style="width:100%" color="primary" (click)="convertTokenIntoXrp()">Convert to XRP</button>
           </mat-card>
           <mat-card class="mat-card-red floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
@@ -101,7 +109,7 @@
         <div *ngIf="selectedToken && canConvert && convertionStarted && !loadingData" style="width: 100%;" fxLayout="column" fxLayoutAlign="center center" fxLayoutGap="0.5em">
 
           <mat-card class="mat-card-green floatcenter" *ngIf="canConvert && convertionStarted && gainedFromConverting > 0" fxLayout="column" fxLayoutGap="0.5em" style="width: 100%;">
-            <label>You have successfully exchanged {{selectedToken && selectedToken.balance === 0 ? 'all' : 'some'}} some of your token for {{gainedFromConverting}} XRP.</label>
+            <label>You have successfully exchanged {{selectedToken && selectedToken.balance === 0 ? 'all' : 'some'}} of your token for {{gainedFromConverting}} XRP.</label>
             <div *ngIf="selectedToken && selectedToken.balance > 0">
               <label>The rest can not be exchanged and we will send it back to the issuer to get rid of it!</label>
               <label>After that, we can remove the trustline!</label>
