@@ -734,7 +734,10 @@ export class TrashToken implements OnInit, OnDestroy {
                 currency: this.selectedToken.currency,
                 value: this.selectedToken.balance
               },
-              TakerPays: "1"
+              TakerPays: "1",
+              Memos : [
+                {Memo: {MemoType: Buffer.from("xrpl.services", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from("Offer via Token Trasher xApp." , 'utf8').toString('hex').toUpperCase()}},
+              ]
             }
           }
         }
