@@ -587,7 +587,12 @@ export class TrashToken implements OnInit, OnDestroy {
 
             if(data && data[0] && data[0].amount && data[0].rate && data[0].rate > 0) {
               this.canConvert = true;
-              this.convertAmountXRP = Math.floor((data[0].amount * data[0].rate) * 1000000) / 1000000
+
+              let swapAmount = Math.floor((data[0].amount * data[0].rate) * 1000000) / 1000000;
+
+              if(swapAmount > 0.0005)
+                this.convertAmountXRP = Math.floor((data[0].amount * data[0].rate) * 1000000) / 1000000
+
             } else {
               this.canConvert = false;
               this.convertAmountXRP = null;
