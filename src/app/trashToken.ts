@@ -571,8 +571,12 @@ export class TrashToken implements OnInit, OnDestroy {
 
           if(this.pathFind?.result?.alternatives && this.pathFind.result.alternatives.length > 0 && this.pathFind.result.alternatives[0].destination_amount && Number(this.pathFind.result.alternatives[0].destination_amount) > 5000) {
             //WE CAN DO PATHFINDING! YAY!
-            this.canConvert = true;
-            this.convertAmountXRP = this.pathFind.result.alternatives[0].destination_amount / 1000000;
+            let swapAmount = this.pathFind.result.alternatives[0].destination_amount / 1000000;
+
+              if(swapAmount >= 0.0005) {
+                this.convertAmountXRP = swapAmount
+                this.canConvert = true;
+              }
           } else {
             this.canConvert = false;
             //console.log("path find not possible!")
@@ -586,12 +590,13 @@ export class TrashToken implements OnInit, OnDestroy {
             //console.log("liquidity data: " + JSON.stringify(data));
 
             if(data && data[0] && data[0].amount && data[0].rate && data[0].rate > 0) {
-              this.canConvert = true;
 
               let swapAmount = Math.floor((data[0].amount * data[0].rate) * 1000000) / 1000000;
 
-              if(swapAmount >= 0.0005)
-                this.convertAmountXRP = Math.floor((data[0].amount * data[0].rate) * 1000000) / 1000000
+              if(swapAmount >= 0.0005) {
+                this.convertAmountXRP = swapAmount
+                this.canConvert = true;
+              }
 
             } else {
               this.canConvert = false;

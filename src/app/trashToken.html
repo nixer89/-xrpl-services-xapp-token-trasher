@@ -132,7 +132,7 @@
 
         <div *ngIf="selectedToken && selectedToken.balance > 0 && (!canConvert || skipConvertion || (canConvert && convertionStarted && gainedFromConverting === 0)) && !loadingData" style="width: 100%;" fxLayout="column" fxLayoutAlign="center center" fxLayoutGap="0.5em">
           <mat-card class="mat-card-orange floatcenter" fxLayout="column" fxLayoutAlign="center center" style="width: 100%;">
-            <label *ngIf="!skipConvertion">Unfortunately, this token can not be converted to XRP.</label>
+            <label *ngIf="!skipConvertion">Unfortunately, this token can not be converted to XRP or the swap amount is smaller than the transaction costs.</label>
             <label>We have to send it back to the issuer to get rid of it!</label>
             <label>This will BURN the token. It won't give you any money back!</label>
             <label>After that, we can remove the trustline!</label>
