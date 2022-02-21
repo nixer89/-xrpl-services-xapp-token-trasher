@@ -15,7 +15,6 @@ import { TypeWriter } from './utils/TypeWriter';
 import * as clipboard from 'copy-to-clipboard';
 import * as transactionParser from 'ripple-lib-transactionparser'
 import { CheckLiquidity } from './utils/liquidity/checkLiquidityForToken';
-import { MatchMedia } from '@angular/flex-layout/core/match-media';
 
 //Trustset flags
 const tfClearFreeze = 0x200000;
@@ -85,6 +84,11 @@ export class TrashToken implements OnInit, OnDestroy {
 
   sessionCounter:number = 1;
 
+  paymentRequired:boolean = false;
+  paymentAmount:number = 0;
+  paymentSuccessful:boolean = false;
+  paymentStarted:boolean = false;
+
   @Input()
   ottChanged: Observable<any>;
 
@@ -120,7 +124,8 @@ export class TrashToken implements OnInit, OnDestroy {
 
     this.loadFeeReserves();
 
-    //await this.loadAccountData("rNixerUVPwrhxGDt4UooDu6FJ7zuofvjCF");
+    //await this.loadAccountData("r9N4v3cWxfh4x6yUNjxNy3DbWUgbzMBLdk");
+    //return;
 
     this.ottReceived = this.ottChanged.subscribe(async ottData => {
       this.infoLabel = "ott received: " + JSON.stringify(ottData);
@@ -354,7 +359,7 @@ export class TrashToken implements OnInit, OnDestroy {
           accInfo = "no account";
         }
 
-        //load balance data
+        //load account lines
         let accountLinesCommand:any = {
           command: "account_objects",
           account: xrplAccount,
@@ -617,7 +622,15 @@ export class TrashToken implements OnInit, OnDestroy {
         }
       }
 
-      //now lets check balance again and move left over token to the issuer
+      if(this.canConvert && this.convertAmountXRP && this.convertAmountXRP >= 0.1) {
+
+        this.paymentAmount = Math.floor(this.convertAmountXRP * 0.1 * 1000000) / 1000000;
+    
+        if(this.paymentAmount > 1)
+          this.paymentAmount = 1;
+      } else {
+          this.paymentAmount = 0;
+      }
     } catch(err) {
       console.log("ERROR SELECTING TOKEN");
       console.log(JSON.stringify(err));
@@ -634,6 +647,7 @@ export class TrashToken implements OnInit, OnDestroy {
   async convertTokenIntoXrp() {
     this.loadingData = true;
     try {
+
       if(this.usePathFind) {
         //add 10% margin on the amounts:
         let xrpAmount:number = Math.round(Number(this.pathFind.result.alternatives[0].destination_amount)*1.1);
@@ -854,33 +868,34 @@ export class TrashToken implements OnInit, OnDestroy {
   }
 
   async removeTrustLine() {
-    this.loadingData = true;
-
-    let genericBackendRequest:GenericBackendPostRequest = {
-      options: {
-        xrplAccount: this.xrplAccountInfo.Account,
-        pushDisabled: true
-      },
-      payload: {
-        txjson: {
-          Account: this.xrplAccountInfo.Account,
-          TransactionType: "TrustSet",
-          Flags: (tfClearFreeze + (this.defaultRippleSet ? tfClearNoRipple : tfSetNoRipple)),
-          LimitAmount: {
-            currency: this.selectedToken.currency,
-            issuer: this.selectedToken.issuer,
-            value: 0
-          },
-          QualityIn: 0,
-          QualityOut: 0
-        },
-        custom_meta: {
-          instruction: "- Remove the Trustline.\n\nPlease sign with the selected Account!"
-        }
-      }
-    }
 
     try {
+      this.loadingData = true;
+
+      let genericBackendRequest:GenericBackendPostRequest = {
+        options: {
+          xrplAccount: this.xrplAccountInfo.Account,
+          pushDisabled: true
+        },
+        payload: {
+          txjson: {
+            Account: this.xrplAccountInfo.Account,
+            TransactionType: "TrustSet",
+            Flags: (tfClearFreeze + (this.defaultRippleSet ? tfClearNoRipple : tfSetNoRipple)),
+            LimitAmount: {
+              currency: this.selectedToken.currency,
+              issuer: this.selectedToken.issuer,
+              value: 0
+            },
+            QualityIn: 0,
+            QualityOut: 0
+          },
+          custom_meta: {
+            instruction: "- Remove the Trustline.\n\nPlease sign with the selected Account!"
+          }
+        }
+      }
+
       let message:any = await this.waitForTransactionSigning(genericBackendRequest);
 
       //this.infoLabel = "setTrustline " + JSON.stringify(this.recipient_account_info);
@@ -1033,6 +1048,65 @@ export class TrashToken implements OnInit, OnDestroy {
     this.loadingData = false;
   }
 
+  async payForDexService() {
+
+    this.loadingData = true;
+
+    try {
+
+      let genericBackendRequest:GenericBackendPostRequest = {
+        options: {
+          xrplAccount: this.xrplAccountInfo.Account,
+          pushDisabled: true
+        },
+        payload: {
+          txjson: {
+            Account: this.xrplAccountInfo.Account,
+            TransactionType: "Payment",
+            Amount: Math.floor(this.paymentAmount * 1000000).toString(),
+            Memos : [
+                      {Memo: {MemoType: Buffer.from("xrpl.services", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from("Payment via Token Trasher xApp for using DEX convertion." , 'utf8').toString('hex').toUpperCase()}},
+                    ]
+          },
+          custom_meta: {
+            instruction: "Please pay with the selected account!",
+            blob: {
+              purpose: "Token Trasher Service"
+            }
+          }
+        }
+      }
+
+      try {
+        let message:any = await this.waitForTransactionSigning(genericBackendRequest);
+
+        if(message && message.payload_uuidv4) {
+      
+          this.paymentStarted = true;
+
+          let txInfo = await this.xummApi.checkPayment(message.payload_uuidv4);
+            //console.log('The generic dialog was closed: ' + JSON.stringify(info));
+
+          if(txInfo && txInfo.success && txInfo.account && txInfo.testnet == this.isTestMode) {
+            if(isValidXRPAddress(txInfo.account))
+              this.paymentSuccessful = true;
+            else
+              this.paymentSuccessful = false;
+          } else {
+            this.paymentSuccessful = false;
+          }
+        }
+      } catch(err) {
+        this.handleError(err);
+      }
+    } catch(err) {
+      //something went wrong. Just let them continue?
+      this.handleError(err);
+    }
+
+    this.loadingData = false;
+  }
+
   async makeDonation() {
     this.loadingData = true;
 
@@ -1083,6 +1157,9 @@ export class TrashToken implements OnInit, OnDestroy {
     this.canConvert = this.convertionStarted = this.skipConvertion = this.checkboxSendToIssuer = this.issuerRequiresDestinationTag = this.xrplclusterRequiresDestinationTag = false;
 
     this.gainedFromConverting = this.gainedFromRemoving = this.gainedFromOffers = this.gainedTotal = 0;
+
+    this.paymentRequired = this.paymentSuccessful = this.paymentStarted = false;
+    this.paymentAmount = 0;
 
     this.existingOffersForToken = this.removedOffersForToken = [];
     this.resetSimpleTrustlineList();
