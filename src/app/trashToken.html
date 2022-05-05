@@ -87,7 +87,6 @@
             <div *ngIf="convertAmountXRP" class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
               <label>You can convert some (or all) of your {{selectedToken && selectedToken.currencyShow}} into roughly {{convertAmountXRP}} XRP.</label>
               <label>This amount is subject to change and can not be guaranteed because order books are a moving target.</label>
-              <label>No fee applies if you will receive less than 0.1 XRP with the swap.</label>
               <mat-card class="mat-card-orange" *ngIf="paymentAmount > 0 && !paymentSuccessful" fxLayout="column" fxLayoutGap="0.3em">
                 <label>To use the DEX convertion service, you have to pay ~ 10% of the convertion amount, but a maximum of {{maxPaymentAmount}} XRP.</label>
                 <label>The amount you have to pay is: {{paymentAmount}} XRP</label>
