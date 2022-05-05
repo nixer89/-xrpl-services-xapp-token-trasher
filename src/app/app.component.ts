@@ -10,7 +10,7 @@ import { OverlayContainer } from '@angular/cdk/overlay';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent implements OnInit {
-  title = 'xrpl-services-xapp-token-trasher';
+  title = 'Token Trasher xApp';
   themeClass:string = "dark-theme";
   backgroundColor: string = "#000000";
   

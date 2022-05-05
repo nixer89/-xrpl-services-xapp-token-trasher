@@ -89,7 +89,7 @@
               <label>This amount is subject to change and can not be guaranteed because order books are a moving target.</label>
               <label>No fee applies if you will receive less than 0.1 XRP with the swap.</label>
               <mat-card class="mat-card-orange" *ngIf="paymentAmount > 0 && !paymentSuccessful" fxLayout="column" fxLayoutGap="0.3em">
-                <label>To use the DEX convertion service, you have to pay ~ 10% of the convertion amount, but a maximum of 1 XRP.</label>
+                <label>To use the DEX convertion service, you have to pay ~ 10% of the convertion amount, but a maximum of {{maxPaymentAmount}} XRP.</label>
                 <label>The amount you have to pay is: {{paymentAmount}} XRP</label>
                 <button mat-raised-button class="btn" style="width:100%" color="primary" (click)="payForDexService()">Pay {{paymentAmount}} XRP</button>  
               </mat-card>
@@ -109,7 +109,7 @@
           <mat-card class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
             <label>You can also choose to NOT convert your token to XRP.</label>
             <label>This will BURN all your token (sending to issuer account) and does NOT swap them for XRP.</label>
-            <label>Please confirm the checkboy and click the button below if you wish to BURN your token instead of SWAPPING them.</label>
+            <label>Please confirm the checkbox and click the button below if you wish to BURN your token instead of SWAPPING them.</label>
             <mat-card class="mat-card-red" fxLayout="column" fxLayoutGap="0.3em">
               <div>
                 <mat-checkbox [(ngModel)]="checkBoxBurnToken" [ngClass]="(checkBoxBurnToken ? 'xumm-green': 'xumm-red')" [disabled]="loadingData">I understand that burning the token will NOT give me any XRP in exchange! I still want to proceed!</mat-checkbox>
