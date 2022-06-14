@@ -74,7 +74,7 @@ export function normalizeCurrencyCodeXummImpl(currencyCode: string, maxLength = 
             if (clean.toLowerCase().trim() === 'xrp') {
                 return 'FakeXRP';
             }
-            return clean;
+            return clean.trim();
         }
 
         // if not decoded then return truncated hex value
