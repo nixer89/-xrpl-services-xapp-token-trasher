@@ -29,6 +29,9 @@ const tfSell = 0x80000;
 const lsfLowReserve = 0x10000;
 const lsfHighReserve = 0x20000;
 
+const lsfLowFreeze = 0x400000;
+const lsfHighFreeze = 0x800000;
+
 @Component({
   selector: 'trashToken',
   templateUrl: './trashToken.html'
@@ -71,6 +74,7 @@ export class TrashToken implements OnInit, OnDestroy {
   defaultRippleSet:boolean = false;
 
   issuerRequiresDestinationTag:boolean = false;
+  issuerHasGlobalFreezeSet:boolean = false;
   xrplclusterRequiresDestinationTag:boolean = false;
 
   checkboxSendToIssuer:boolean = false;
@@ -89,7 +93,7 @@ export class TrashToken implements OnInit, OnDestroy {
   paymentSuccessful:boolean = false;
   paymentStarted:boolean = false;
 
-  maxPaymentAmount:number = 2;
+  maxPaymentAmount:number = 5;
 
   @Input()
   ottChanged: Observable<any>;
@@ -104,6 +108,7 @@ export class TrashToken implements OnInit, OnDestroy {
   backgroundColor = '#000000';
 
   loadingData:boolean = false;
+  applyFilters:boolean = false;
 
   websocket: WebSocketSubject<any>;
 
@@ -126,7 +131,8 @@ export class TrashToken implements OnInit, OnDestroy {
 
     this.loadFeeReserves();
 
-    //await this.loadAccountData("r9N4v3cWxfh4x6yUNjxNy3DbWUgbzMBLdk");
+    //await this.loadAccountData("r9nwWypnjHsw98xz1hFfbNnrhrALurgXM7");
+    //this.loadingData = false;
     //return;
 
     this.ottReceived = this.ottChanged.subscribe(async ottData => {
@@ -422,7 +428,7 @@ export class TrashToken implements OnInit, OnDestroy {
       }
     } catch(err) {
       console.log(err);
-      this.errorLabel = JSON.stringify(err);
+      this.errorLabel = err;
       this.handleError(err);
     }
   }
@@ -430,6 +436,11 @@ export class TrashToken implements OnInit, OnDestroy {
   countsTowardsReserve(line: RippleState): boolean {
     const reserveFlag = line.HighLimit.issuer === this.xrplAccountInfo.Account ? lsfHighReserve : lsfLowReserve;
     return line.Flags && (line.Flags & reserveFlag) == reserveFlag;
+  }
+
+  isFrozen(line: RippleState): boolean {
+    const freezeFlag = line.HighLimit.issuer === this.xrplAccountInfo.Account ? lsfLowFreeze : lsfHighFreeze;
+    return line.Flags && (line.Flags & freezeFlag) == freezeFlag;
   }
 
   async loadIssuerAccountData(issuerAccount: string) {
@@ -455,6 +466,7 @@ export class TrashToken implements OnInit, OnDestroy {
             accInfo = message_acc_info.result.account_data;
 
             this.issuerRequiresDestinationTag = flagUtil.isRequireDestinationTagEnabled(accInfo.Flags)
+            this.issuerHasGlobalFreezeSet = flagUtil.isGlobalFreezeSet(accInfo.Flags);
 
             //console.log("issuer accInfo: " + JSON.stringify(accInfo));
 
@@ -471,7 +483,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
       }
     } catch(err) {
-      this.errorLabel = JSON.stringify(err);
+      this.errorLabel = err;
       this.handleError(err);
     }
   }
@@ -479,6 +491,8 @@ export class TrashToken implements OnInit, OnDestroy {
   applyFilter() {
 
     //console.log("search string: " + this.searchString);
+
+    this.applyFilters = true;
 
     let newSimpleTrustline:SimpleTrustline[] = [];
 
@@ -494,9 +508,10 @@ export class TrashToken implements OnInit, OnDestroy {
           balance = balance * -1;
 
         let balanceShow = normalizer.normalizeBalance(balance);
+        let isFrozen = this.isFrozen(this.existingAccountLines[i]);
 
         if(!this.searchString || this.searchString.trim().length == 0 || currencyShow.toLocaleLowerCase().includes(this.searchString.trim().toLocaleLowerCase())) {
-          newSimpleTrustline.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
+          newSimpleTrustline.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow, isFrozen: isFrozen});
         }
       }
     }
@@ -508,9 +523,13 @@ export class TrashToken implements OnInit, OnDestroy {
     }
 
     this.simpleTrustlines = newSimpleTrustline;
+
+    this.applyFilters = false;
   }
 
   resetSimpleTrustlineList() {
+    this.applyFilters = true;
+
     let newSimpleTrustlines:SimpleTrustline[] = []
 
     for(let i = 0; i < this.existingAccountLines.length; i++) {
@@ -525,8 +544,9 @@ export class TrashToken implements OnInit, OnDestroy {
           balance = balance * -1;
 
         let balanceShow = normalizer.normalizeBalance(balance);
+        let isFrozen = this.isFrozen(this.existingAccountLines[i]);
 
-        newSimpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow});
+        newSimpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow, isFrozen: isFrozen});
       }
     }
 
@@ -537,6 +557,8 @@ export class TrashToken implements OnInit, OnDestroy {
     }
 
     this.simpleTrustlines = newSimpleTrustlines;
+
+    this.applyFilters = false;
   }
 
   async selectToken(token: SimpleTrustline) {
@@ -1170,7 +1192,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
   resetVariables() {
     this.selectedToken = this.pathFind = this.searchString = this.convertAmountXRP = null;
-    this.canConvert = this.convertionStarted = this.skipConvertion = this.checkboxSendToIssuer = this.issuerRequiresDestinationTag = this.xrplclusterRequiresDestinationTag = false;
+    this.canConvert = this.convertionStarted = this.skipConvertion = this.checkboxSendToIssuer = this.issuerRequiresDestinationTag = this.xrplclusterRequiresDestinationTag = this.issuerHasGlobalFreezeSet = false;
 
     this.gainedFromConverting = this.gainedFromRemoving = this.gainedFromOffers = this.gainedTotal = 0;
 

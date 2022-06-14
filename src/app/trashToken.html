@@ -54,13 +54,26 @@
                 <div class="listarea" *ngIf="simpleTrustlines.length > 0">
                   <ul class="list" fxLayout="column" fxLayoutGap="1em">
                     <li *ngFor="let trustline of simpleTrustlines" fxLayout="row" fxLayoutAlign="center center" fxLayoutGap="0.5em">
-                      <div style="font-size: medium;" fxLayout="column" fxLayoutAlign="start start">
-                        <label><b><code>{{trustline.currencyShow}}:</code></b></label>
+                      <div style="font-size: medium; width: 100%;" fxLayout="column" fxLayoutAlign="start start">
+                        <div fxLayout="row" fxLayoutAlign="start center" style="width: 100%;">
+                          <div>
+                            <label><b><code>{{trustline.currencyShow}}:</code></b></label>
+                          </div>
+                          <span style="flex: 1 1 auto;"></span>
+                          <div *ngIf="trustline.isFrozen" fxLayout="row" fxLayoutAlign="start center">
+                            <i class="material-icons xumm-red" style="font-size: 1em;">
+                              severe_cold
+                            </i>
+                            <label><b><code>(FROZEN!)</code></b></label>
+                          </div>
+                          
+                        </div>
+                        
                         <label><b><code>{{trustline.balanceShow}}</code></b></label>
                       </div>
                       <span style="flex: 1 1 auto;"></span>
                       <div fxLayout="row" fxLayoutAlign="center center">
-                        <button mat-raised-button class="thin" color="primary" (click)="selectToken(trustline)">Remove</button>
+                        <button mat-raised-button class="thin" color="primary" (click)="selectToken(trustline)" [disabled]="applyFilters || loadingData">Remove</button>
                       </div>
                     </li>
                   </ul>
@@ -76,7 +89,7 @@
     </mat-step>
 
     <mat-step completed="false" editable="false">
-      <mat-card class="stepcontainer" fxLayout="column" fxLayoutGap="1em" fxLayoutAlign="start center" style="margin-left: 0.5em; margin-right: 0.5em;">
+      <mat-card *ngIf="(!issuerHasGlobalFreezeSet || (issuerHasGlobalFreezeSet && selectedToken && selectedToken.balance == 0)) && (selectedToken && !selectedToken.isFrozen)" class="stepcontainer" fxLayout="column" fxLayoutGap="1em" fxLayoutAlign="start center" style="margin-left: 0.5em; margin-right: 0.5em;">
 
         <mat-card class="mat-card-blue" fxLayout="column" fxLayoutAlign="center center" style="width: 100%;">
           <label><b>You have {{selectedToken && selectedToken.balanceShow}} {{selectedToken && selectedToken.currencyShow}} left!</b></label>
@@ -143,11 +156,11 @@
             <label>The Issuer requires a Destination Tag for sending back the Token. We will set the Destination Tag to "13371337". If you happen to know 'your' Destination Tag with the issuer, please use the one you know!</label>
           </mat-card>
 
-          <div fxLayout="column" fxLayoutGap="1em" style="width: 100%; padding-top: 1.5em;">
+          <mat-card fxLayout="column" fxLayoutGap="1em" style="width: 100%; padding-top: 1.5em;">
             <mat-checkbox [(ngModel)]="checkboxSendToIssuer" [ngClass]="(checkboxSendToIssuer ? 'xumm-green': 'xumm-red')">Sending the token back to the issuer means to lose ALL ACCESS to this token. It won't be converted to XRP AND you won't be able to get the token back. Please confirm to send back {{selectedToken && selectedToken.balanceShow}} {{selectedToken && selectedToken.currencyShow}} to the issuer!</mat-checkbox>
   
             <button mat-raised-button style="width: 100%;" class="btn" color="primary" [disabled]="!checkboxSendToIssuer" (click)="sendToIssuer()">Send to Issuer</button>
-          </div>
+          </mat-card>
         </div>
 
         <div *ngIf="selectedToken && selectedToken.balance === 0 && !loadingData" style="width: 100%" fxLayout="column" fxLayoutAlign="center center">
@@ -168,6 +181,40 @@
             <mat-progress-spinner color="primary" mode="indeterminate" diameter=25></mat-progress-spinner>
           </mat-card>
         </div>
+
+        <div fxLayoutGap="0.5em" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em">
+          <div *ngIf="selectedToken && selectedToken.balance == 0">
+            <button mat-raised-button style="width: 100%;" color="primary" (click)="moveNext()" [disabled]="(selectedToken && selectedToken.balance != 0 ) || loadingData">Next</button>
+          </div>  
+          <button mat-raised-button style="width: 100%;" class="xumm-grey-background" (click)="moveBack()" [disabled]="loadingData">Back</button>
+        </div>
+      </mat-card>
+
+      <mat-card *ngIf="(issuerHasGlobalFreezeSet || (selectedToken && selectedToken.isFrozen)) && selectedToken && selectedToken.balance != 0" class="stepcontainer" fxLayout="column" fxLayoutGap="1em" fxLayoutAlign="start center" style="margin-left: 0.5em; margin-right: 0.5em;">
+        
+        <mat-card class="mat-card-blue" fxLayout="column" fxLayoutAlign="center center" style="width: 100%;">
+          <label><b>You have {{selectedToken && selectedToken.balanceShow}} {{selectedToken && selectedToken.currencyShow}} left!</b></label>
+        </mat-card>
+
+        <mat-card class="mat-card-orange" fxLayout="column" fxLayoutAlign="center center" style="width: 100%;" fxLayoutGap="0.5em">
+          <div class="floatcenter" fxLayout="column" fxLayoutGap="0.5em">
+            <label *ngIf="issuerHasGlobalFreezeSet"><b>The Issuer has a 'Global Freeze' enabled for ALL of his tokens.</b></label>
+            <label *ngIf="!issuerHasGlobalFreezeSet && selectedToken && selectedToken.isFrozen"><b>The Issuer has FROZEN this trustline.</b></label>
+            <label><b>(That means that you can NOT sell the token or send it to another account. BUT you can send it back to the issuer. Please continue if you wish to do so.)</b></label>
+            <label>&nbsp;</label>
+            <label><b>(YOU MIGHT WANT TO CONTACT THE ISSUER WHY THE TRUSTLINE IS FROZEN BEFORE YOU PROCEED!)</b></label>
+            <label>&nbsp;</label>
+            <label>Sending the tokens to the Issuer will <b>BURN ALL</b> your token and does NOT swap them for XRP.</label>
+            <label>Please confirm the checkbox and click the button below if you wish to BURN your token instead of SWAPPING them.</label>
+          </div>
+
+          <mat-card class="mat-card-red" fxLayout="column" fxLayoutGap="0.3em">
+            <div>
+              <mat-checkbox [(ngModel)]="checkBoxBurnToken" [ngClass]="(checkBoxBurnToken ? 'xumm-green': 'xumm-red')" [disabled]="loadingData">I understand that burning the token will NOT give me any XRP in exchange! I still want to proceed!</mat-checkbox>
+            </div>
+            <button mat-raised-button class="btn" style="width:100%" color="primary" [disabled]="!checkBoxBurnToken" (click)="skipSwap()">BURN THEM ALL!</button>
+          </mat-card>
+        </mat-card>
 
         <div fxLayoutGap="0.5em" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em">
           <div *ngIf="selectedToken && selectedToken.balance == 0">

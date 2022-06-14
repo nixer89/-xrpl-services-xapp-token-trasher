@@ -71,5 +71,6 @@ export interface SimpleTrustline {
     currency: string,
     currencyShow: string,
     balance: number,
-    balanceShow: number
+    balanceShow: number,
+    isFrozen: boolean
 }

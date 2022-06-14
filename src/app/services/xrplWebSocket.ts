@@ -44,7 +44,7 @@ export class XRPLWebsocket {
 
         return new Promise((resolve, reject) => {
             this.websocketMap.get(componentname).socket.asObservable().subscribe(async message => {
-                console.log(JSON.stringify(message));
+                //console.log(JSON.stringify(message));
                 
                 if(message && message.error && this.errorsToSwitch.includes(message.error)) {
                     resolve(await this.cleanupAndChangeNode(componentname, command, retry));    
@@ -55,7 +55,7 @@ export class XRPLWebsocket {
                 resolve(await this.cleanupAndChangeNode(componentname, command, retry));
             });
 
-            console.log("setting up command: " + JSON.stringify(command))
+            //console.log("setting up command: " + JSON.stringify(command))
             this.websocketMap.get(componentname).socket.next(command);
         });        
     }
