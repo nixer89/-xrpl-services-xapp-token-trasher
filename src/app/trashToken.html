@@ -101,7 +101,7 @@
               <label>You can convert some (or all) of your {{selectedToken && selectedToken.currencyShow}} into roughly {{convertAmountXRP}} XRP.</label>
               <label>This amount is subject to change and can not be guaranteed because order books are a moving target.</label>
               <mat-card class="mat-card-orange" *ngIf="paymentAmount > 0 && !paymentSuccessful" fxLayout="column" fxLayoutGap="0.3em">
-                <label>To use the DEX convertion service, you have to pay ~ 10% of the convertion amount, but a maximum of {{maxPaymentAmount}} XRP.</label>
+                <label>To use the DEX conversion service, you have to pay ~ 10% of the conversion amount, but a maximum of {{maxPaymentAmount}} XRP.</label>
                 <label>The amount you have to pay is: {{paymentAmount}} XRP</label>
                 <button mat-raised-button class="btn" style="width:100%" color="primary" (click)="payForDexService()">Pay {{paymentAmount}} XRP</button>  
               </mat-card>
@@ -124,7 +124,7 @@
             <label>Please confirm the checkbox and click the button below if you wish to BURN your token instead of SWAPPING them.</label>
             <mat-card class="mat-card-red" fxLayout="column" fxLayoutGap="0.3em">
               <div>
-                <mat-checkbox [(ngModel)]="checkBoxBurnToken" [ngClass]="(checkBoxBurnToken ? 'xumm-green': 'xumm-red')" [disabled]="loadingData">I understand that burning the token will NOT give me any XRP in exchange! I still want to proceed!</mat-checkbox>
+                <mat-checkbox [(ngModel)]="checkBoxBurnToken" [ngClass]="(checkBoxBurnToken ? 'xumm-green': 'xumm-red')" [disabled]="loadingData"><b>I understand that burning the token will NOT give me any XRP in exchange! I still want to proceed!</b></mat-checkbox>
               </div>
               <button mat-raised-button class="btn" style="width:100%" color="primary" [disabled]="!checkBoxBurnToken" (click)="skipSwap()">No Convertion. BURN THEM ALL!</button>
             </mat-card>
@@ -196,7 +196,13 @@
           <label><b>You have {{selectedToken && selectedToken.balanceShow}} {{selectedToken && selectedToken.currencyShow}} left!</b></label>
         </mat-card>
 
-        <mat-card class="mat-card-orange" fxLayout="column" fxLayoutAlign="center center" style="width: 100%;" fxLayoutGap="0.5em">
+        <mat-card *ngIf="convertAmountXRP" class="mat-card-green" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+          <div class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+            <label>Your {{selectedToken && selectedToken.currencyShow}} is currently worth around {{convertAmountXRP}} XRP.</label>
+          </div>
+        </mat-card>
+
+        <mat-card *ngIf="!loadingData" class="mat-card-orange" fxLayout="column" fxLayoutAlign="center center" style="width: 100%;" fxLayoutGap="0.5em">
           <div class="floatcenter" fxLayout="column" fxLayoutGap="0.5em">
             <label *ngIf="issuerHasGlobalFreezeSet"><b>The Issuer has a 'Global Freeze' enabled for ALL of his tokens.</b></label>
             <label *ngIf="!issuerHasGlobalFreezeSet && selectedToken && selectedToken.isFrozen"><b>The Issuer has FROZEN this trustline.</b></label>
@@ -210,11 +216,18 @@
 
           <mat-card class="mat-card-red" fxLayout="column" fxLayoutGap="0.3em">
             <div>
-              <mat-checkbox [(ngModel)]="checkBoxBurnToken" [ngClass]="(checkBoxBurnToken ? 'xumm-green': 'xumm-red')" [disabled]="loadingData">I understand that burning the token will NOT give me any XRP in exchange! I still want to proceed!</mat-checkbox>
+              <mat-checkbox [(ngModel)]="checkBoxBurnToken" [ngClass]="(checkBoxBurnToken ? 'xumm-green': 'xumm-red')" [disabled]="loadingData"><b>I understand that burning the tokens will NOT give me any XRP in exchange and that I will LOSE my tokens worth around {{convertAmountXRP}} XRP! I still want to proceed!</b></mat-checkbox>
             </div>
             <button mat-raised-button class="btn" style="width:100%" color="primary" [disabled]="!checkBoxBurnToken" (click)="skipSwap()">BURN THEM ALL!</button>
           </mat-card>
         </mat-card>
+
+        <div *ngIf="loadingData" fxLayout="column" fxLayoutAlign="center center" style="width: 100%">
+          <mat-card class="mat-card-orange floatcenter" fxLayout="row" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%">
+            <label>Loading...</label>
+            <mat-progress-spinner color="primary" mode="indeterminate" diameter=25></mat-progress-spinner>
+          </mat-card>
+        </div>
 
         <div fxLayoutGap="0.5em" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em">
           <div *ngIf="selectedToken && selectedToken.balance == 0">
