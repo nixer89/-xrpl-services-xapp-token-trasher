@@ -105,7 +105,7 @@
                 <label>The amount you have to pay is: {{paymentAmount}} XRP</label>
                 <button mat-raised-button class="btn" style="width:100%" color="primary" (click)="payForDexService()">Pay {{paymentAmount}} XRP</button>  
               </mat-card>
-              <mat-card class="mat-card-orange" *ngIf="paymentAmount == 0 && !paymentSuccessful" fxLayout="column" fxLayoutGap="0.3em">
+              <mat-card class="mat-card-orange" *ngIf="paymentAmount == 0 && !paymentSuccessful" fxLayout="column" fxLayoutGap="0.3em" style="width: 100%;">
                 <label>Swapping this token is free of charge.</label>
               </mat-card>
             </div>
