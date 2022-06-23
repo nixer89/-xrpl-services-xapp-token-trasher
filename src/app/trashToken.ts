@@ -93,7 +93,7 @@ export class TrashToken implements OnInit, OnDestroy {
   paymentSuccessful:boolean = false;
   paymentStarted:boolean = false;
 
-  maxPaymentAmount:number = 5;
+  maxPaymentAmount:number = 10;
 
   @Input()
   ottChanged: Observable<any>;
@@ -597,7 +597,7 @@ export class TrashToken implements OnInit, OnDestroy {
             //WE CAN DO PATHFINDING! YAY!
             let swapAmount = this.pathFind.result.alternatives[0].destination_amount / 1000000;
 
-              if(swapAmount >= 0.0005) {
+              if(swapAmount >= 0.0001) {
                 this.convertAmountXRP = swapAmount
                 this.canConvert = true;
               }
@@ -617,7 +617,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
               let swapAmount = Math.floor((data[0].amount * data[0].rate) * 1000000) / 1000000;
 
-              if(swapAmount >= 0.0005) {
+              if(swapAmount >= 0.0001) {
                 this.convertAmountXRP = swapAmount
                 this.canConvert = true;
               }
@@ -656,9 +656,9 @@ export class TrashToken implements OnInit, OnDestroy {
         }
       }
 
-      if(this.canConvert && this.convertAmountXRP && this.convertAmountXRP >= 0.1) {
+      if(this.canConvert && this.convertAmountXRP && this.convertAmountXRP >= 1) {
 
-        this.paymentAmount = Math.floor(this.convertAmountXRP * 0.1 * 1000000) / 1000000;
+        this.paymentAmount = Math.floor(this.convertAmountXRP * 0.05 * 1000000) / 1000000;
     
         if(this.paymentAmount > this.maxPaymentAmount)
           this.paymentAmount = this.maxPaymentAmount;
