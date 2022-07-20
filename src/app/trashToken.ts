@@ -1103,7 +1103,7 @@ export class TrashToken implements OnInit, OnDestroy {
             TransactionType: "Payment",
             Amount: Math.floor(this.paymentAmount * 1000000).toString(),
             Memos : [
-                      {Memo: {MemoType: Buffer.from("xrpl.services", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from("Payment via Token Trasher xApp for using DEX convertion." , 'utf8').toString('hex').toUpperCase()}},
+                      {Memo: {MemoType: Buffer.from("xrpl.services", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from("Payment via Token Trasher xApp for using DEX conversion: " + this.selectedToken.issuer + " + " + this.selectedToken.currencyShow , 'utf8').toString('hex').toUpperCase()}},
                     ]
           },
           custom_meta: {
