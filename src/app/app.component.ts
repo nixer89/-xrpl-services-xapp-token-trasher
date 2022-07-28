@@ -89,7 +89,7 @@ export class AppComponent implements OnInit {
         try {
           this.infoLabel = "calling backend";
           let ottResponse:any = await this.xummService.getxAppOTTData(xAppToken);
-          //console.log("ottResponse: " + JSON.stringify(ottResponse));
+          console.log("ottResponse: " + JSON.stringify(ottResponse));
           this.infoLabel = "ott from backend: " + JSON.stringify(ottResponse);
   
           this.alreadySent = true;

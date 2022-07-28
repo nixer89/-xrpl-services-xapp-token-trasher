@@ -112,6 +112,9 @@ div.listarea {
     }
 }
 
+mat-stepper[hide-header] .mat-horizontal-stepper-header-container {
+  display:none;
+}
 .mat-stepper-horizontal {
     // display: grid;
     // grid-template-rows: 4rem auto;
@@ -132,9 +135,6 @@ div.listarea {
       margin-left: 1px;
       margin-right: 1px;
     }
-    .mat-horizontal-stepper-header-container {
-        height: 4rem;
-      }
     .mat-horizontal-content-container {
       padding: 0;
       .mat-horizontal-stepper-content[aria-expanded='true'] {

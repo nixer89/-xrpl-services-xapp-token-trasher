@@ -127,13 +127,23 @@ export class TrashToken implements OnInit, OnDestroy {
 
     this.loadingData = true;
 
-    this.liquidityChecker = CheckLiquidity.Instance;
+    //this.liquidityChecker = CheckLiquidity.Instance;
 
     this.loadFeeReserves();
 
-    //await this.loadAccountData("r9nwWypnjHsw98xz1hFfbNnrhrALurgXM7");
-    //this.loadingData = false;
-    //return;
+    /**
+    await this.loadAccountData("r9nwWypnjHsw98xz1hFfbNnrhrALurgXM7");
+    let preselect = this.simpleTrustlines.filter(trustline => "rKuuRSQM2pTtv8ZrhQbU6kBgusCD79cem3" === trustline.issuer && "XCC" === trustline.currency );
+
+    //console.log("preselect: " + JSON.stringify(preselect));
+
+    if(preselect && preselect.length === 1) {
+      //console.log("select token!");
+      setTimeout( () => this.selectToken(preselect[0]), 100);
+    }
+    this.loadingData = false;
+    return;
+     */
 
     this.ottReceived = this.ottChanged.subscribe(async ottData => {
       this.infoLabel = "ott received: " + JSON.stringify(ottData);
@@ -564,19 +574,19 @@ export class TrashToken implements OnInit, OnDestroy {
   async selectToken(token: SimpleTrustline) {
     this.loadingData = true;
     try {
-      this.moveNext();
+      //this.moveNext();
 
       this.resetVariables();
 
       //console.log("SELECTED: " + JSON.stringify(token));
       this.selectedToken = token;
       this.searchString = null;
-      this.skipConvertion = false;
+      this.skipConvertion = true;
 
       //loading issuer data
       await this.loadIssuerAccountData(this.selectedToken.issuer);
 
-      if(this.selectedToken.balance > 0) {
+      if(this.selectedToken.balance < 0) {
         if(this.usePathFind) {
           //check path finding!
           let pathfindRequest = {
@@ -870,6 +880,9 @@ export class TrashToken implements OnInit, OnDestroy {
               currency: this.selectedToken.currency,
               issuer: this.selectedToken.issuer
             }
+          },
+          custom_meta: {
+            instruction: "- Sending tokens back to issuer.\n- this will BURN the token!!!\n\nPlease sign with the selected Account!"
           }
         }
       }
