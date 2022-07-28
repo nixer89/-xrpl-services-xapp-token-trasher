@@ -54,6 +54,8 @@ export class TrashToken implements OnInit, OnDestroy {
 
   selectedToken:SimpleTrustline = null;
 
+  //burnOnly:boolean = false;
+
   usePathFind:boolean = false;
   pathFind:any = null;
 
@@ -63,6 +65,8 @@ export class TrashToken implements OnInit, OnDestroy {
   convertionStarted:boolean = false;
   skipConvertion:boolean = false;
   convertAmountXRP:number = null;
+
+  burnOnly:boolean = false;
 
   liquidityChecker:CheckLiquidity = null;
 
@@ -154,6 +158,9 @@ export class TrashToken implements OnInit, OnDestroy {
           await this.loadAccountData(ottData.account);
 
           try {
+
+            this.burnOnly = ottData.burnOnly && ottData.burnOnly === 'true';
+
             //read origin data
             if(ottData.issuer && ottData.currency) {
               //console.log("having issuer and currency")
@@ -571,12 +578,11 @@ export class TrashToken implements OnInit, OnDestroy {
       //console.log("SELECTED: " + JSON.stringify(token));
       this.selectedToken = token;
       this.searchString = null;
-      this.skipConvertion = false;
 
       //loading issuer data
       await this.loadIssuerAccountData(this.selectedToken.issuer);
 
-      if(this.selectedToken.balance > 0) {
+      if(this.selectedToken.balance > 0 && !this.burnOnly) {
         if(this.usePathFind) {
           //check path finding!
           let pathfindRequest = {

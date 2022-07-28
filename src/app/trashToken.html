@@ -95,7 +95,7 @@
           <label><b>You have {{selectedToken && selectedToken.balanceShow}} {{selectedToken && selectedToken.currencyShow}} left!</b></label>
         </mat-card>
 
-        <div *ngIf="selectedToken && selectedToken.balance > 0 && canConvert && !convertionStarted && !skipConvertion && !loadingData" fxLayout="column" fxLayoutGap="1em" fxLayoutAlign="center center" style="width: 100%;">
+        <div *ngIf="selectedToken && selectedToken.balance > 0 && canConvert && !convertionStarted && !skipConvertion && !burnOnly && !loadingData" fxLayout="column" fxLayoutGap="1em" fxLayoutAlign="center center" style="width: 100%;">
           <mat-card class="mat-card-green floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
             <div *ngIf="convertAmountXRP" class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
               <label>You can convert some (or all) of your {{selectedToken && selectedToken.currencyShow}} into roughly {{convertAmountXRP}} XRP.</label>
@@ -145,16 +145,17 @@
           </mat-card>
         </div>
 
-        <div *ngIf="selectedToken && selectedToken.balance > 0 && (!canConvert || skipConvertion || (canConvert && convertionStarted && gainedFromConverting === 0)) && !loadingData" style="width: 100%;" fxLayout="column" fxLayoutAlign="center center" fxLayoutGap="0.5em">
+        <div *ngIf="selectedToken && selectedToken.balance > 0 && (!canConvert || skipConvertion || burnOnly || (canConvert && convertionStarted && gainedFromConverting === 0)) && !loadingData" style="width: 100%;" fxLayout="column" fxLayoutAlign="center center" fxLayoutGap="0.5em">
           <mat-card class="mat-card-orange floatcenter" fxLayout="column" fxLayoutAlign="center center" style="width: 100%;">
-            <label *ngIf="!skipConvertion">Unfortunately, this token can not be converted to XRP or the swap amount is smaller than the transaction costs.</label>
+            <label *ngIf="!skipConvertion && !burnOnly">Unfortunately, this token can not be converted to XRP or the swap amount is smaller than the transaction costs.</label>
+            <label *ngIf="burnOnly">This xApp helps you remove rugged tokens by burning them!</label>
             <label>We have to send it back to the issuer to get rid of it!</label>
             <label>This will BURN the token. It won't give you any money back!</label>
             <label>After that, we can remove the trustline!</label>
           </mat-card>
         </div>
 
-        <div *ngIf="selectedToken && selectedToken.balance > 0 && (!canConvert || skipConvertion || (canConvert && convertionStarted)) && !loadingData" fxLayout="column" fxLayoutGap="1em" style="width: 100%;">
+        <div *ngIf="selectedToken && selectedToken.balance > 0 && (!canConvert || skipConvertion || burnOnly || (canConvert && convertionStarted)) && !loadingData" fxLayout="column" fxLayoutGap="1em" style="width: 100%;">
           <mat-card class="mat-card-red" *ngIf="issuerRequiresDestinationTag || xrplclusterRequiresDestinationTag" style="width: 100%;">
             <label>The Issuer requires a Destination Tag for sending back the Token. We will set the Destination Tag to "13371337". If you happen to know 'your' Destination Tag with the issuer, please use the one you know!</label>
           </mat-card>
@@ -189,7 +190,9 @@
           <div *ngIf="selectedToken && selectedToken.balance == 0">
             <button mat-raised-button style="width: 100%;" color="primary" (click)="moveNext()" [disabled]="(selectedToken && selectedToken.balance != 0 ) || loadingData">Next</button>
           </div>  
-          <button mat-raised-button style="width: 100%;" class="xumm-grey-background" (click)="moveBack()" [disabled]="loadingData">Back</button>
+          <div *ngIf="!burnOnly">
+            <button mat-raised-button style="width: 100%;" class="xumm-grey-background" (click)="moveBack()" [disabled]="loadingData">Back</button>
+          </div>
         </div>
       </mat-card>
 
@@ -235,8 +238,10 @@
         <div fxLayoutGap="0.5em" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em">
           <div *ngIf="selectedToken && selectedToken.balance == 0">
             <button mat-raised-button style="width: 100%;" color="primary" (click)="moveNext()" [disabled]="(selectedToken && selectedToken.balance != 0 ) || loadingData">Next</button>
-          </div>  
-          <button mat-raised-button style="width: 100%;" class="xumm-grey-background" (click)="moveBack()" [disabled]="loadingData">Back</button>
+          </div>
+          <div *ngIf="!burnOnly">
+            <button mat-raised-button style="width: 100%;" class="xumm-grey-background" (click)="moveBack()" [disabled]="loadingData">Back</button>
+          </div>
         </div>
       </mat-card>
     </mat-step>
@@ -296,7 +301,9 @@
           </div>
 
           <div style="padding-top: 0.5em; width: 100%" fxLayout="column" fxLayoutGap="1em">
-            <button mat-raised-button style="width: 100%;" color="primary" (click)="trashAnotherOne()">Remove Another Token!</button>
+            <div *ngIf="!burnOnly">
+              <button mat-raised-button style="width: 100%;" color="primary" (click)="trashAnotherOne()">Remove Another Token!</button>
+            </div>
             <button mat-raised-button style="width: 100%;" class="xumm-grey-background" (click)="close()">Close xApp</button>
           </div>
         </div>
