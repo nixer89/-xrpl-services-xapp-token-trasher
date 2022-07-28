@@ -159,8 +159,6 @@ export class TrashToken implements OnInit, OnDestroy {
 
           try {
 
-            this.burnOnly = ottData.burnOnly && ottData.burnOnly === 'true';
-
             //read origin data
             if(ottData.issuer && ottData.currency) {
               //console.log("having issuer and currency")
@@ -170,6 +168,10 @@ export class TrashToken implements OnInit, OnDestroy {
               //console.log("preselect: " + JSON.stringify(preselect));
 
               if(preselect && preselect.length === 1) {
+
+                //we found a token to preselect. check burnOnly property!
+                this.burnOnly = ottData.burnOnly && ottData.burnOnly === 'true';
+
                 //console.log("select token!");
                 setTimeout( () => this.selectToken(preselect[0]), 100);
               }
