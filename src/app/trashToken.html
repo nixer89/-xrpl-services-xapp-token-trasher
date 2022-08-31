@@ -34,7 +34,28 @@
 
   <mat-stepper orientation="horizontal" [linear]="isLinear" #stepper class="theme-background" *ngIf="xrplAccountInfo && xrplAccountInfo.Account">
     <mat-step completed="false" editable="false">
-        <mat-card class="stepcontainer" fxLayout="column" fxLayoutGap="1em" style="margin-left: 0.5em; margin-right: 0.5em;">
+
+        <mat-card class="stepcontainer" fxLayout="column" fxLayoutGap="0.5em" style="margin-left: 0.5em; margin-right: 0.5em;">
+
+          <mat-card fxLayout="column" fxLayoutAlign="start start" fxLayoutGap="0.5em">
+            <div fxLayout="row" style="width: 100%">
+              <div fxLayout="row" fxLayoutGap="0.5em" fxLayoutAlign="start center" style="width: 80%">
+                <mat-checkbox [(ngModel)]="checkBoxSkipDialogs" [ngClass]="(checkBoxSkipDialogs ? 'xumm-green': 'xumm-orange')" [disabled]="!isXummProUser">Skip Dialogs</mat-checkbox>
+                <img src="../assets/pro-badge.png" width ="50px" height="21px" alt="XUMM Pro">
+              </div>
+              <div fxLayout="row" fxLayoutGap="0.5em" fxLayoutAlign="end center"  style="width: 20%">
+                <i class="material-icons" style="cursor: pointer;" (click)="skipConvertion = !skipConvertion">info</i>
+              </div>
+            </div>
+            <div *ngIf="!isXummProUser" style="font-weight: bold; font-size: 0.8em;">
+              <a href="https://xumm.app/detect/xapp:xumm.pro-beta?application_id=282206ef-7b2b-473a-85ba-4f1fc6b17266">( XUMM Pro required! Click here ... )</a>
+            </div>
+            <mat-card class="mat-card-orange" fxLayout="column" *ngIf="skipConvertion">
+              <label>Skips all dialogs and presents only XUMM sign requests.</label>
+              <label>Please double check ALL sign requests!</label>
+            </mat-card>
+          </mat-card>
+
           <h2>Select a Token to get rid of:</h2>
             <div *ngIf="simpleTrustlines" fxLayout="column" fxLayoutGap="0.3em">
 
@@ -304,7 +325,6 @@
             <div *ngIf="!burnOnly">
               <button mat-raised-button style="width: 100%;" color="primary" (click)="trashAnotherOne()">Remove Another Token!</button>
             </div>
-            <button mat-raised-button style="width: 100%;" class="xumm-grey-background" (click)="close()">Close xApp</button>
           </div>
         </div>
 

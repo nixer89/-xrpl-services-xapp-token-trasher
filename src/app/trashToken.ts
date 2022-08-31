@@ -81,7 +81,11 @@ export class TrashToken implements OnInit, OnDestroy {
   issuerHasGlobalFreezeSet:boolean = false;
   xrplclusterRequiresDestinationTag:boolean = false;
 
+  checkBoxSkipDialogs:boolean = false;
   checkboxSendToIssuer:boolean = false;
+
+  isXummProUser:boolean = false;
+  showSkipDialogInfo:boolean = false;
 
   transactionSuccessfull: Subject<void> = new Subject<void>();
 
@@ -135,9 +139,12 @@ export class TrashToken implements OnInit, OnDestroy {
 
     this.loadFeeReserves();
 
-    //await this.loadAccountData("r9nwWypnjHsw98xz1hFfbNnrhrALurgXM7");
-    //this.loadingData = false;
-    //return;
+    /** 
+    await this.loadAccountData("r9nwWypnjHsw98xz1hFfbNnrhrALurgXM7");
+    this.loadingData = false;
+    this.isXummProUser = true;
+    return;
+    **/
 
     this.ottReceived = this.ottChanged.subscribe(async ottData => {
       this.infoLabel = "ott received: " + JSON.stringify(ottData);
@@ -146,6 +153,8 @@ export class TrashToken implements OnInit, OnDestroy {
       if(ottData) {
 
         //return;
+
+        this.isXummProUser = ottData && ottData.account_info && ottData.account_info.proSubscription;
 
         this.infoLabel = JSON.stringify(ottData);
         
@@ -292,6 +301,7 @@ export class TrashToken implements OnInit, OnDestroy {
         return null;
     }
 
+    //console.log("opening sign dialog...")
     if (typeof window.ReactNativeWebView !== 'undefined') {
       //this.infoLabel = "opening sign request";
       window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -584,83 +594,90 @@ export class TrashToken implements OnInit, OnDestroy {
       //loading issuer data
       await this.loadIssuerAccountData(this.selectedToken.issuer);
 
-      if(this.selectedToken.balance > 0 && !this.burnOnly) {
-        if(this.usePathFind) {
-          //check path finding!
-          let pathfindRequest = {
-            command: "ripple_path_find",
-            source_account: this.xrplAccountInfo.Account,
-            destination_account: this.xrplAccountInfo.Account,
-            destination_amount: "-1",
-            send_max: {
-                value: token.balance+"",
-                currency: token.currency,
-                issuer: token.issuer
-            }
-          }
-
-          this.pathFind = await this.xrplWebSocket.getWebsocketMessage('token-trasher', pathfindRequest, this.isTestMode);
-
-          if(this.pathFind?.result?.alternatives && this.pathFind.result.alternatives.length > 0 && this.pathFind.result.alternatives[0].destination_amount && Number(this.pathFind.result.alternatives[0].destination_amount) > 5000) {
-            //WE CAN DO PATHFINDING! YAY!
-            let swapAmount = this.pathFind.result.alternatives[0].destination_amount / 1000000;
-
-              if(swapAmount >= 0.0001) {
-                this.convertAmountXRP = swapAmount
-                this.canConvert = true;
+      if(!this.burnOnly) {
+        if(this.selectedToken.balance > 0) {
+          if(this.usePathFind) {
+            //check path finding!
+            let pathfindRequest = {
+              command: "ripple_path_find",
+              source_account: this.xrplAccountInfo.Account,
+              destination_account: this.xrplAccountInfo.Account,
+              destination_amount: "-1",
+              send_max: {
+                  value: token.balance+"",
+                  currency: token.currency,
+                  issuer: token.issuer
               }
+            }
+
+            this.pathFind = await this.xrplWebSocket.getWebsocketMessage('token-trasher', pathfindRequest, this.isTestMode);
+
+            if(this.pathFind?.result?.alternatives && this.pathFind.result.alternatives.length > 0 && this.pathFind.result.alternatives[0].destination_amount && Number(this.pathFind.result.alternatives[0].destination_amount) > 5000) {
+              //WE CAN DO PATHFINDING! YAY!
+              let swapAmount = this.pathFind.result.alternatives[0].destination_amount / 1000000;
+
+                if(swapAmount >= 0.0001) {
+                  this.convertAmountXRP = swapAmount
+                  this.canConvert = true;
+                }
+            } else {
+              this.canConvert = false;
+              //console.log("path find not possible!")
+            }
           } else {
-            this.canConvert = false;
-            //console.log("path find not possible!")
-          }
-        } else {
-          try {
-            //check liquidity
+            try {
+              //check liquidity
 
-            let data = await this.liquidityChecker.checkLiquidity(this.selectedToken.issuer, this.selectedToken.currency, this.selectedToken.balance);
+              let data = await this.liquidityChecker.checkLiquidity(this.selectedToken.issuer, this.selectedToken.currency, this.selectedToken.balance);
 
-            //console.log("liquidity data: " + JSON.stringify(data));
+              //console.log("liquidity data: " + JSON.stringify(data));
 
-            if(data && data[0] && data[0].amount && data[0].rate && data[0].rate > 0) {
+              if(data && data[0] && data[0].amount && data[0].rate && data[0].rate > 0) {
 
-              let swapAmount = Math.floor((data[0].amount * data[0].rate) * 1000000) / 1000000;
+                let swapAmount = Math.floor((data[0].amount * data[0].rate) * 1000000) / 1000000;
 
-              if(swapAmount >= 0.0001) {
-                this.convertAmountXRP = swapAmount
-                this.canConvert = true;
+                if(swapAmount >= 0.0001) {
+                  this.convertAmountXRP = swapAmount
+                  this.canConvert = true;
+                }
+
+              } else {
+                this.canConvert = false;
+                this.convertAmountXRP = null;
+              }
+            } catch(err) {
+              //some error thrown, do it the old way!
+              //check order book!
+              
+              let bookOfferRequest = {
+                command: "book_offers",
+                taker: this.xrplAccountInfo.Account,
+                taker_gets: {
+                  currency: "XRP"
+                },
+                taker_pays: {
+                  currency: this.selectedToken.currency,
+                  issuer: this.selectedToken.issuer
+                },
+                limit: 10
               }
 
-            } else {
-              this.canConvert = false;
-              this.convertAmountXRP = null;
-            }
-          } catch(err) {
-            //some error thrown, do it the old way!
-            //check order book!
-            
-            let bookOfferRequest = {
-              command: "book_offers",
-              taker: this.xrplAccountInfo.Account,
-              taker_gets: {
-                currency: "XRP"
-              },
-              taker_pays: {
-                currency: this.selectedToken.currency,
-                issuer: this.selectedToken.issuer
-              },
-              limit: 10
-            }
+              let bookOffers = await this.xrplWebSocket.getWebsocketMessage('token-trasher', bookOfferRequest, this.isTestMode);
 
-            let bookOffers = await this.xrplWebSocket.getWebsocketMessage('token-trasher', bookOfferRequest, this.isTestMode);
-
-            if(bookOffers?.result?.offers && bookOffers.result.offers.length > 0) {
-              //WE CAN DO OFFER! YAY!
-              this.canConvert = true;
-            } else {
-              this.canConvert = false;
-              //console.log("offer convertion not possible!")
-            }
-          }          
+              if(bookOffers?.result?.offers && bookOffers.result.offers.length > 0) {
+                //WE CAN DO OFFER! YAY!
+                this.canConvert = true;
+              } else {
+                this.canConvert = false;
+                //console.log("offer convertion not possible!")
+              }
+            }          
+          }
+        } else if(this.selectedToken.balance == 0 && this.checkBoxSkipDialogs) {
+          //token balance is 0 -> remove it right away!
+          this.moveNext();
+          await this.removeTrustLine();
+          return;
         }
       }
 
@@ -749,7 +766,7 @@ export class TrashToken implements OnInit, OnDestroy {
         } else {
           //not signed or error?
           this.gainedFromConverting = 0;
-            this.convertionStarted = false;
+          this.convertionStarted = false;
         }
       } else {
         //use a order
@@ -845,6 +862,19 @@ export class TrashToken implements OnInit, OnDestroy {
         this.selectedToken = updatedToken[0];
       }
 
+      if(this.checkBoxSkipDialogs && this.selectedToken && this.convertionStarted) {
+        //if balance = 0 -> send to issuer
+        if(this.selectedToken.balance == 0) {
+          this.moveNext();
+          await this.removeTrustLine();
+          return;
+        } else if(this.selectedToken.balance > 0) {
+          //could NOT sell everything! send leftover back to issuer
+          await this.sendToIssuer();
+          return;
+        }
+      }
+
       //console.log("selectedToken: " + JSON.stringify(this.selectedToken));
 
     } catch(err) {
@@ -900,6 +930,16 @@ export class TrashToken implements OnInit, OnDestroy {
           if(updatedToken && updatedToken.length == 1) {
             this.selectedToken = updatedToken[0];
           }
+
+          if(this.checkBoxSkipDialogs && this.selectedToken) {
+            //if balance = 0 -> send to issuer
+            if(this.selectedToken.balance == 0) {
+              this.moveNext();
+              await this.removeTrustLine();
+              return;
+            }
+          }
+
         } else {
           //check if "local error missing destination tag"
         }
@@ -1134,10 +1174,16 @@ export class TrashToken implements OnInit, OnDestroy {
             //console.log('The generic dialog was closed: ' + JSON.stringify(info));
 
           if(txInfo && txInfo.success && txInfo.account && txInfo.testnet == this.isTestMode) {
-            if(isValidXRPAddress(txInfo.account))
+            if(isValidXRPAddress(txInfo.account)) {
               this.paymentSuccessful = true;
-            else
+
+              if(this.checkBoxSkipDialogs) {
+                await this.convertTokenIntoXrp();
+                return;
+              }
+            } else {
               this.paymentSuccessful = false;
+            }
           } else {
             this.paymentSuccessful = false;
           }

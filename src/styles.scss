@@ -74,10 +74,6 @@ body .snackbar-failed {
     font-weight: bold;
 }
 
-.mat-checkbox-layout .mat-checkbox-label {
-    line-height: 20px !important;
-}
-
 .mat-hint {
     color: rgb(255, 91, 91) !important;
 }
@@ -133,7 +129,7 @@ div.listarea {
       margin-right: 1px;
     }
     .mat-horizontal-stepper-header-container {
-        height: 4rem;
+        height: 3rem;
       }
     .mat-horizontal-content-container {
       padding: 0;
