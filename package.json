@@ -1,6 +1,6 @@
 {
   "name": "xrpl-services-xapp-token-trasher",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --port 4204 --open",
@@ -29,7 +29,6 @@
     "@angular/router": "^13.1.0",
     "buffer": "^6.0.3",
     "copy-to-clipboard": "^3.3.1",
-    "five-bells-condition": "^5.0.1",
     "moment": "^2.29.1",
     "ripple-lib-transactionparser": "^0.8.2",
     "rippled-ws-client": "^1.6.5",

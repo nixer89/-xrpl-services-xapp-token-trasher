@@ -123,7 +123,7 @@
               <label>You can convert some (or all) of your {{selectedToken && selectedToken.currencyShow}} into roughly {{convertAmountXRP}} XRP.</label>
               <label>This amount is subject to change and can not be guaranteed because order books are a moving target.</label>
               <mat-card class="mat-card-orange" *ngIf="paymentAmount > 0 && !paymentSuccessful" fxLayout="column" fxLayoutGap="0.3em">
-                <label>To use the DEX conversion service, you have to pay ~ 5% of the conversion amount, but a maximum of {{maxPaymentAmount}} XRP.</label>
+                <label>To use the easy DEX conversion service, you have to pay ~ 10% of the conversion amount, but a maximum of {{maxPaymentAmount}} XRP.</label>
                 <label>The amount you have to pay is: {{paymentAmount}} XRP</label>
                 <button mat-raised-button class="btn" style="width:100%" color="primary" (click)="payForDexService()">Pay {{paymentAmount}} XRP</button>  
               </mat-card>

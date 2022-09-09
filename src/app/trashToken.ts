@@ -101,7 +101,7 @@ export class TrashToken implements OnInit, OnDestroy {
   paymentSuccessful:boolean = false;
   paymentStarted:boolean = false;
 
-  maxPaymentAmount:number = 10;
+  maxPaymentAmount:number = 20;
 
   @Input()
   ottChanged: Observable<any>;
@@ -681,9 +681,9 @@ export class TrashToken implements OnInit, OnDestroy {
         }
       }
 
-      if(this.canConvert && this.convertAmountXRP && this.convertAmountXRP >= 1) {
+      if(this.canConvert && this.convertAmountXRP && this.convertAmountXRP >= 5) {
 
-        this.paymentAmount = Math.floor(this.convertAmountXRP * 0.05 * 1000000) / 1000000;
+        this.paymentAmount = Math.floor(this.convertAmountXRP * 0.1 * 1000000) / 1000000;
     
         if(this.paymentAmount > this.maxPaymentAmount)
           this.paymentAmount = this.maxPaymentAmount;
