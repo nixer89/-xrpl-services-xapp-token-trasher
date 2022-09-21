@@ -83,6 +83,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
   checkBoxSkipDialogs:boolean = false;
   checkboxSendToIssuer:boolean = false;
+  checkBoxBurnToken:boolean = false;
 
   isXummProUser:boolean = false;
   showSkipDialogInfo:boolean = false;
@@ -1173,6 +1174,10 @@ export class TrashToken implements OnInit, OnDestroy {
           let txInfo = await this.xummApi.checkPayment(message.payload_uuidv4);
             //console.log('The generic dialog was closed: ' + JSON.stringify(info));
 
+          if(txInfo && !txInfo.success) { //try again, just in case!
+            txInfo = await this.xummApi.checkPayment(message.payload_uuidv4);
+          }
+
           if(txInfo && txInfo.success && txInfo.account && txInfo.testnet == this.isTestMode) {
             if(isValidXRPAddress(txInfo.account)) {
               this.paymentSuccessful = true;
@@ -1246,7 +1251,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
   resetVariables() {
     this.selectedToken = this.pathFind = this.searchString = this.convertAmountXRP = null;
-    this.canConvert = this.convertionStarted = this.skipConvertion = this.checkboxSendToIssuer = this.issuerRequiresDestinationTag = this.xrplclusterRequiresDestinationTag = this.issuerHasGlobalFreezeSet = false;
+    this.canConvert = this.convertionStarted = this.skipConvertion = this.checkboxSendToIssuer = this.checkBoxBurnToken = this.issuerRequiresDestinationTag = this.xrplclusterRequiresDestinationTag = this.issuerHasGlobalFreezeSet = false;
 
     this.gainedFromConverting = this.gainedFromRemoving = this.gainedFromOffers = this.gainedTotal = 0;
 
@@ -1304,9 +1309,13 @@ export class TrashToken implements OnInit, OnDestroy {
         item.editable = true;
         item.completed = false;
       }
-    })
+    });
 
     this.stepper.previous();
+
+    if(this.stepper.selectedIndex === 0) {
+      this.resetVariables();
+    }
   }
 
   reset() {

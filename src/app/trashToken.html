@@ -143,7 +143,7 @@
               <button mat-raised-button class="btn" style="width:100%" color="primary" (click)="convertTokenIntoXrp()">Convert to XRP</button>  
             </div>
           </mat-card>
-          <mat-card class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+          <mat-card *ngIf="!paymentSuccessful" class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
             <label>You can also choose to NOT convert your token to XRP.</label>
             <label>This will BURN all your token (sending to issuer account) and does NOT swap them for XRP.</label>
             <label>Please confirm the checkbox and click the button below if you wish to BURN your token instead of SWAPPING them.</label>
@@ -212,7 +212,7 @@
           <div *ngIf="selectedToken && selectedToken.balance == 0">
             <button mat-raised-button style="width: 100%;" color="primary" (click)="moveNext()" [disabled]="(selectedToken && selectedToken.balance != 0 ) || loadingData">Next</button>
           </div>  
-          <div *ngIf="!burnOnly">
+          <div *ngIf="!burnOnly && (!paymentSuccessful || convertionStarted)">
             <button mat-raised-button style="width: 100%;" class="xumm-grey-background" (click)="moveBack()" [disabled]="loadingData">Back</button>
           </div>
         </div>
