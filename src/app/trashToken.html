@@ -309,15 +309,15 @@
             </div>
           </div>
 
-          <div *ngIf="(gainedTotal && gainedTotal >= 2 ) || showDonation()" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="start center" style="width: 100%; margin-top: 1em">
+          <div *ngIf="(gainedTotal && gainedTotal >= 2 ) || showLoveButton()" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="start center" style="width: 100%; margin-top: 1em">
             <mat-card class="mat-card-green floatcenter" style="width: 100%;" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center">
               <label *ngIf="gainedTotal && gainedTotal >= 2"><b>YOU GAINED A TOTAL OF {{gainedTotal}} XRP!</b></label>
               <mat-card class="mat-card-orange floatcenter" *ngIf="paymentSuccessful && paymentAmount > 0" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
                 <label>By paying only {{paymentAmount}} XRP for using this service!</label>
               </mat-card>
               <div *ngIf="!paymentSuccessful && paymentAmount <= 0 && gainedTotal > 2" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
-                <label>Please consider making a small donation. Thank you!</label>
-                <button mat-raised-button color="primary" style="width: 100%;" (click)="makeDonation()">Make A Donation</button>
+                <label>Please consider making a small payment of gratitude. Thank you!</label>
+                <button mat-raised-button color="primary" style="width: 100%;" (click)="sendSomeLove()">Send some Love</button>
               </div>   
             </mat-card>
           </div>

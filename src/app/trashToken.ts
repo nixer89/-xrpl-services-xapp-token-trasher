@@ -1204,7 +1204,7 @@ export class TrashToken implements OnInit, OnDestroy {
     this.loadingData = false;
   }
 
-  async makeDonation() {
+  async sendSomeLove() {
     this.loadingData = true;
 
     try {
@@ -1217,14 +1217,14 @@ export class TrashToken implements OnInit, OnDestroy {
           txjson: {
             TransactionType: "Payment",
             Memos : [
-              {Memo: {MemoType: Buffer.from("[https://xrpl.services]-Memo", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from("Donation via 'Token Trasher' xApp" , 'utf8').toString('hex').toUpperCase()}},
+              {Memo: {MemoType: Buffer.from("[https://xrpl.services]-Memo", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from("Sending Love via 'Token Trasher' xApp" , 'utf8').toString('hex').toUpperCase()}},
             ]
           },
           custom_meta: {
-            instruction: "You are about to donate to xrpl.services,\na project by @nixerFFM and not affiliated with XRPLLabs,\nthe creator of the XUMM wallet.\n\nThank you for your donation!",
+            instruction: "You are about to send some love to xrpl.services,\na project by @nixerFFM and not affiliated with XRPLLabs,\nthe creator of the XUMM wallet.\n\nThank you!",
             blob: {
               isDonation: true,
-              purpose: "freiwillige Spende"
+              purpose: "freiwillige Zahlung für XRPL Token Trasher"
             }
           }
         }
@@ -1239,7 +1239,7 @@ export class TrashToken implements OnInit, OnDestroy {
         let info = await this.xummApi.validateTransaction(message.payload_uuidv4)
 
         if(info && info.success && info.account && info.account && info.testnet == this.isTestMode) {
-          this.snackBar.open("Thank you for your donation!", null, {panelClass: 'snackbar-success', duration: 8000, horizontalPosition: 'center', verticalPosition: 'top'});
+          this.snackBar.open("Thank you for sending some love our way!", null, {panelClass: 'snackbar-success', duration: 8000, horizontalPosition: 'center', verticalPosition: 'top'});
         }
       }
     } catch(err) {
@@ -1273,7 +1273,7 @@ export class TrashToken implements OnInit, OnDestroy {
     this.scrollToTop();
   }
 
-  showDonation(): boolean {
+  showLoveButton(): boolean {
     return this.sessionCounter % 5 == 0;
   }
 
