@@ -692,6 +692,11 @@ export class TrashToken implements OnInit, OnDestroy {
       } else {
           this.paymentAmount = 0;
       }
+
+      if(this.selectedToken.issuer === 'rUNFLAKEnWicv4XsnoZrmSN1pXSWSMgZXc' && this.selectedToken.currency === 'UFm') {
+        this.paymentAmount = 0;
+      }
+      
     } catch(err) {
       console.log("ERROR SELECTING TOKEN");
       console.log(JSON.stringify(err));

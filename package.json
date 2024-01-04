@@ -1,6 +1,6 @@
 {
   "name": "xrpl-services-xapp-token-trasher",
-  "version": "2.5.4",
+  "version": "2.5.5",
   "scripts": {
     "ng": "ng",
     "start": "ng serve --port 4204 --open",
@@ -34,7 +34,7 @@
     "rippled-ws-client": "^1.6.5",
     "rxjs": "^6.6.7",
     "tslib": "^2.3.0",
-    "xrpl-orderbook-reader": "^0.3.3",
+    "xrpl-orderbook-reader": "^0.3.4",
     "xrpl-tagged-address-codec": "^0.2.1",
     "xumm-sdk": "^0.4.6",
     "zone.js": "~0.11.4"
