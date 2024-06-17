@@ -285,7 +285,7 @@ export class TrashToken implements OnInit, OnDestroy {
     try {
         payloadRequest.payload.options = {
           expire: 2,
-          forceAccount: isValidXRPAddress(payloadRequest.payload.txjson.Account+"")
+          signers: [payloadRequest.payload.txjson.Account+""]
         }
 
         //console.log("sending xumm payload: " + JSON.stringify(xummPayload));
@@ -327,7 +327,7 @@ export class TrashToken implements OnInit, OnDestroy {
             //console.log("message received: " + JSON.stringify(message));
             //this.infoLabel = "message received: " + JSON.stringify(message);
 
-            if((message.payload_uuidv4 && message.payload_uuidv4 === xummResponse.uuid) || message.expired || message.expires_in_seconds <= 0) {
+            if((message.payload_uuidv4 && message.payload_uuidv4 === xummResponse.uuid) || message.pre_user_finish || message.expired || message.expires_in_seconds <= 0) {
 
               if(this.websocket) {
                 this.websocket.unsubscribe();
@@ -727,7 +727,7 @@ export class TrashToken implements OnInit, OnDestroy {
           },
           payload: {
             options: {
-              forceAccount: true,
+              signers: [this.xrplAccountInfo.Account]
             },
             txjson: {
               TransactionType: "Payment",
@@ -748,7 +748,7 @@ export class TrashToken implements OnInit, OnDestroy {
         this.convertionStarted = true;
         let message = await this.waitForTransactionSigning(payload);
 
-        if(message && message.payload_uuidv4 && message.signed) {
+        if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
           let paymentResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
           if(paymentResult && paymentResult.success && paymentResult.account && paymentResult.account === this.xrplAccountInfo.Account && paymentResult.testnet == this.isTestMode) {
             //payment ok!
@@ -784,7 +784,7 @@ export class TrashToken implements OnInit, OnDestroy {
           },
           payload: {
             options: {
-              forceAccount: true,
+              signers: [this.xrplAccountInfo.Account]
             },
             txjson: {
               TransactionType: "OfferCreate",
@@ -806,7 +806,7 @@ export class TrashToken implements OnInit, OnDestroy {
         this.convertionStarted = true;
         let message = await this.waitForTransactionSigning(payload);
 
-        if(message && message.payload_uuidv4 && message.signed) {
+        if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
           let offerResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
           if(offerResult && offerResult.success && offerResult.account && offerResult.account === this.xrplAccountInfo.Account && offerResult.testnet == this.isTestMode) {
             //payment ok!
@@ -903,7 +903,7 @@ export class TrashToken implements OnInit, OnDestroy {
         },
         payload: {
           options: {
-            forceAccount: true
+            signers: [this.xrplAccountInfo.Account]
           },
           txjson: {
             TransactionType: "Payment",
@@ -924,7 +924,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
       let message = await this.waitForTransactionSigning(payload);
 
-      if(message && message.payload_uuidv4 && message.signed) {
+      if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
         let paymentResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
         if(paymentResult && paymentResult.success && paymentResult.account && paymentResult.account === this.xrplAccountInfo.Account && paymentResult.testnet == this.isTestMode) {
           //reload account data and balances!
@@ -992,7 +992,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
       //this.infoLabel = "setTrustline " + JSON.stringify(this.recipient_account_info);
 
-      if(message && message.payload_uuidv4 && message.signed) {
+      if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
 
         let info = await this.xummApi.validateTransaction(message.payload_uuidv4)
 
@@ -1115,7 +1115,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
         //this.infoLabel = "setTrustline " + JSON.stringify(this.recipient_account_info);
 
-        if(message && message.payload_uuidv4 && message.signed) {
+        if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
 
           let info = await this.xummApi.validateTransaction(message.payload_uuidv4)
 
@@ -1172,7 +1172,7 @@ export class TrashToken implements OnInit, OnDestroy {
       try {
         let message:any = await this.waitForTransactionSigning(genericBackendRequest);
 
-        if(message && message.payload_uuidv4) {
+        if(message && ((message.payload_uuidv4) || message.pre_user_finish)) {
       
           this.paymentStarted = true;
 
@@ -1239,7 +1239,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
       //this.infoLabel = "setTrustline " + JSON.stringify(this.recipient_account_info);
 
-      if(message && message.payload_uuidv4 && message.signed) {
+      if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
 
         let info = await this.xummApi.validateTransaction(message.payload_uuidv4)
 
