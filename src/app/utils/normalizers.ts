@@ -62,6 +62,8 @@ export function normalizeCurrencyCodeXummImpl(currencyCode: string, maxLength = 
             } catch {
                 decoded = HexEncoding.toString(currencyCode);
             }
+        } else if(currencyCode.startsWith('03')) { //LP TOKEN from an AMM
+            decoded = "LP " + currencyCode.substring(2, 8) + "...";
         } else {
             decoded = HexEncoding.toString(currencyCode);
         }

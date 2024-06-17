@@ -32,6 +32,8 @@ const lsfHighReserve = 0x20000;
 const lsfLowFreeze = 0x400000;
 const lsfHighFreeze = 0x800000;
 
+const lsfAMM = 0x01000000;
+
 @Component({
   selector: 'trashToken',
   templateUrl: './trashToken.html'
@@ -463,6 +465,10 @@ export class TrashToken implements OnInit, OnDestroy {
     return line.Flags && (line.Flags & freezeFlag) == freezeFlag;
   }
 
+  isLpToken(line: RippleState): boolean {
+    return line.Flags && (line.Flags & lsfAMM) == lsfAMM;
+  }
+
   async loadIssuerAccountData(issuerAccount: string) {
     try {
       //console.log("loading account data...");
@@ -520,18 +526,19 @@ export class TrashToken implements OnInit, OnDestroy {
       if(this.existingAccountLines[i] && this.countsTowardsReserve(this.existingAccountLines[i])) {
         let balance = Number(this.existingAccountLines[i].Balance.value);
 
-        let issuer:string = this.existingAccountLines[i].HighLimit.issuer === this.xrplAccountInfo.Account ? this.existingAccountLines[i].LowLimit.issuer : this.existingAccountLines[i].HighLimit.issuer;
-        let currency = this.existingAccountLines[i].Balance.currency;
-        let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
+        const issuer:string = this.existingAccountLines[i].HighLimit.issuer === this.xrplAccountInfo.Account ? this.existingAccountLines[i].LowLimit.issuer : this.existingAccountLines[i].HighLimit.issuer;
+        const currency = this.existingAccountLines[i].Balance.currency;
+        const currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
 
         if(balance < 0)
           balance = balance * -1;
 
-        let balanceShow = normalizer.normalizeBalance(balance);
-        let isFrozen = this.isFrozen(this.existingAccountLines[i]);
+        const balanceShow = normalizer.normalizeBalance(balance);
+        const isFrozen = this.isFrozen(this.existingAccountLines[i]);
+        const isLpToken = this.isLpToken(this.existingAccountLines[i]);
 
         if(!this.searchString || this.searchString.trim().length == 0 || currencyShow.toLocaleLowerCase().includes(this.searchString.trim().toLocaleLowerCase())) {
-          newSimpleTrustline.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow, isFrozen: isFrozen});
+          newSimpleTrustline.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow, isFrozen: isFrozen, isLpToken: isLpToken});
         }
       }
     }
@@ -556,17 +563,18 @@ export class TrashToken implements OnInit, OnDestroy {
       if(this.existingAccountLines[i] && this.countsTowardsReserve(this.existingAccountLines[i])) {
         let balance = Number(this.existingAccountLines[i].Balance.value);
 
-        let issuer:string = this.existingAccountLines[i].HighLimit.issuer === this.xrplAccountInfo.Account ? this.existingAccountLines[i].LowLimit.issuer : this.existingAccountLines[i].HighLimit.issuer;
-        let currency = this.existingAccountLines[i].Balance.currency;
-        let currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
+        const issuer:string = this.existingAccountLines[i].HighLimit.issuer === this.xrplAccountInfo.Account ? this.existingAccountLines[i].LowLimit.issuer : this.existingAccountLines[i].HighLimit.issuer;
+        const currency = this.existingAccountLines[i].Balance.currency;
+        const currencyShow = normalizer.normalizeCurrencyCodeXummImpl(currency);
 
         if(balance < 0)
           balance = balance * -1;
 
-        let balanceShow = normalizer.normalizeBalance(balance);
-        let isFrozen = this.isFrozen(this.existingAccountLines[i]);
+        const balanceShow = normalizer.normalizeBalance(balance);
+        const isFrozen = this.isFrozen(this.existingAccountLines[i]);
+        const isLpToken = this.isLpToken(this.existingAccountLines[i]);
 
-        newSimpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow, isFrozen: isFrozen});
+        newSimpleTrustlines.push({issuer: issuer, currency: currency, currencyShow: currencyShow, balance: balance, balanceShow: balanceShow, isFrozen: isFrozen, isLpToken: isLpToken});
       }
     }
 
@@ -595,7 +603,7 @@ export class TrashToken implements OnInit, OnDestroy {
       //loading issuer data
       await this.loadIssuerAccountData(this.selectedToken.issuer);
 
-      if(!this.burnOnly) {
+      if(!this.burnOnly && !this.selectedToken.isFrozen && !this.issuerHasGlobalFreezeSet) {
         if(this.selectedToken.balance > 0) {
           if(this.usePathFind) {
             //check path finding!
