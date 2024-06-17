@@ -10,7 +10,7 @@ import { isValidXRPAddress } from 'src/app/utils/utils';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { webSocket, WebSocketSubject} from 'rxjs/webSocket';
-import { XummTypes } from 'xumm-sdk';
+import { XummTypes, xApp } from 'xumm-sdk';
 import { TypeWriter } from './utils/TypeWriter';
 import * as clipboard from 'copy-to-clipboard';
 import * as transactionParser from 'ripple-lib-transactionparser'
@@ -139,13 +139,13 @@ export class TrashToken implements OnInit, OnDestroy {
     this.liquidityChecker = CheckLiquidity.Instance;
 
     this.loadFeeReserves();
-
-    /** 
-    await this.loadAccountData("r9nwWypnjHsw98xz1hFfbNnrhrALurgXM7");
+    
+    /**
+    await this.loadAccountData("r9N4v3cWxfh4x6yUNjxNy3DbWUgbzMBLdk");
     this.loadingData = false;
     this.isXummProUser = true;
     return;
-    **/
+     */
 
     this.ottReceived = this.ottChanged.subscribe(async ottData => {
       this.infoLabel = "ott received: " + JSON.stringify(ottData);
@@ -285,9 +285,10 @@ export class TrashToken implements OnInit, OnDestroy {
     try {
         payloadRequest.payload.options = {
           expire: 2,
-          forceAccount: isValidXRPAddress(payloadRequest.payload.txjson.Account+"")
+          signers: [payloadRequest.payload.txjson.Account+""]
         }
 
+        this.errorLabel = "CREATING PAYLOAD!"
         //console.log("sending xumm payload: " + JSON.stringify(xummPayload));
         xummResponse = await this.xummApi.submitPayload(payloadRequest);
         //this.infoLabel = "Called xumm successfully"
@@ -301,6 +302,8 @@ export class TrashToken implements OnInit, OnDestroy {
         this.snackBar.open("Could not contact XUMM backend", null, {panelClass: 'snackbar-failed', duration: 3000, horizontalPosition: 'center', verticalPosition: 'top'});
         return null;
     }
+
+    this.errorLabel = "OPEN PAYLOAD!"
 
     //console.log("opening sign dialog...")
     if (typeof window.ReactNativeWebView !== 'undefined') {
@@ -320,14 +323,72 @@ export class TrashToken implements OnInit, OnDestroy {
         this.websocket.complete();
       }
 
+      let uuidReceived = false;
+
+      let welcomed = false;
+      let expires_in = false;
+      let opened = false;
+      let devapp = false;
+      let pre_signed = false;
+      let dispatched = false;
+      let payload_uuid = false;
+      let expired = false;
+
       return new Promise( (resolve, reject) => {
 
         this.websocket = webSocket(xummResponse.refs.websocket_status);
         this.websocket.asObservable().subscribe(async message => {
+
+            if(message.message) {
+              welcomed = true;
+            }
+
+            if(message.expired_in_seconds) {
+              expires_in = true;
+            }
+
+            if(message.opened) {
+              opened = true;
+            }
+
+            if(message.devapp_fetched) {
+              devapp = true;
+            }
+
+            if(message.pre_signed) {
+              pre_signed = true;
+            }
+
+            if(message.dispatched) {
+              dispatched = true;
+            }
+
+            if(message.payload_uuidv4) {
+              payload_uuid = true;
+            }
+
+            if(message.expired) {
+              expired = true;
+            }
+
+            this.infoLabel = "websocket message: " + JSON.stringify([welcomed, expires_in, opened, devapp, pre_signed, dispatched, payload_uuid, expired]);
+
             //console.log("message received: " + JSON.stringify(message));
-            //this.infoLabel = "message received: " + JSON.stringify(message);
+            /**
+            if(!uuidReceived) {
+              this.infoLabel = "websocket message received: " + JSON.stringify(message);
+            }
+
+            if(message.payload_uuidv4) {
+              uuidReceived = true;
+              this.infoLabel = "websocket message received: " + JSON.stringify(message);
+            }
+
+             */
 
             if((message.payload_uuidv4 && message.payload_uuidv4 === xummResponse.uuid) || message.expired || message.expires_in_seconds <= 0) {
+
+              this.errorLabel = "WEBSOCKET RESOLVED";
 
               if(this.websocket) {
                 this.websocket.unsubscribe();
@@ -727,7 +788,7 @@ export class TrashToken implements OnInit, OnDestroy {
           },
           payload: {
             options: {
-              forceAccount: true,
+              signers: [this.xrplAccountInfo.Account],
             },
             txjson: {
               TransactionType: "Payment",
@@ -784,7 +845,7 @@ export class TrashToken implements OnInit, OnDestroy {
           },
           payload: {
             options: {
-              forceAccount: true,
+              signers: [this.xrplAccountInfo.Account],
             },
             txjson: {
               TransactionType: "OfferCreate",
@@ -903,7 +964,7 @@ export class TrashToken implements OnInit, OnDestroy {
         },
         payload: {
           options: {
-            forceAccount: true
+            signers: [this.xrplAccountInfo.Account],
           },
           txjson: {
             TransactionType: "Payment",
@@ -1170,22 +1231,40 @@ export class TrashToken implements OnInit, OnDestroy {
       }
 
       try {
+        this.errorLabel = "WAITING FOR SIGN REQUEST TO BE SIGNED";
         let message:any = await this.waitForTransactionSigning(genericBackendRequest);
+
+        this.errorLabel = "REQUEST SIGNED";
+
+        //let message:any = {payload_uuidv4: "26f6fd54-d135-4d32-bdee-da555378b8a1"};
 
         if(message && message.payload_uuidv4) {
       
           this.paymentStarted = true;
 
+          this.errorLabel = "PAYMENT STARTED: TRUE";
+
           let txInfo = await this.xummApi.checkPayment(message.payload_uuidv4);
-            //console.log('The generic dialog was closed: ' + JSON.stringify(info));
+
+          this.errorLabel = "CHECKED PAYMENT: \n\n" + JSON.stringify(txInfo);
+          
+          //console.log('The generic dialog was closed: ' + JSON.stringify(info));
 
           if(txInfo && !txInfo.success) { //try again, just in case!
             txInfo = await this.xummApi.checkPayment(message.payload_uuidv4);
           }
 
+          this.errorLabel = "CHECKING THINGS";
           if(txInfo && txInfo.success && txInfo.account && txInfo.testnet == this.isTestMode) {
+
+            this.errorLabel = "SUCCESS";
             if(isValidXRPAddress(txInfo.account)) {
+
+              this.errorLabel = "VALID ACCOUNT";
+
               this.paymentSuccessful = true;
+
+              this.errorLabel = "PAYMENT SUCCESSFULL";
 
               if(this.checkBoxSkipDialogs) {
                 await this.convertTokenIntoXrp();
@@ -1193,20 +1272,26 @@ export class TrashToken implements OnInit, OnDestroy {
               }
             } else {
               this.paymentSuccessful = false;
+              this.errorLabel = "PAYMENT NOT SUCCESSFULL 1";
             }
           } else {
             this.paymentSuccessful = false;
+            this.errorLabel = "PAYMENT NOT SUCCESSFULL 2";
           }
         }
       } catch(err) {
+        this.errorLabel = "ERROR_1: " + JSON.stringify(err);
         this.handleError(err);
       }
     } catch(err) {
+      this.errorLabel = "ERROR_2: " + JSON.stringify(err);
       //something went wrong. Just let them continue?
       this.handleError(err);
     }
 
     this.loadingData = false;
+
+    this.errorLabel = "LOADING FALSE";
   }
 
   async sendSomeLove() {

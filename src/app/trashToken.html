@@ -28,8 +28,8 @@
     <label>Please close this xApp, navigate to the home screen and switch to the account you want to remove tokens from. (Needs to have 'Full Access') Then open the xApp again.</label>
   </mat-card>
 
-  <!--label *ngIf="infoLabel" style="color: red">{{infoLabel}}</label><br><br>
-  <label *ngIf="infoLabel2" style="color: red">{{infoLabel2}}</label>
+  <label *ngIf="infoLabel" style="color: red">{{infoLabel}}</label><br><br>
+  <!--label *ngIf="infoLabel2" style="color: red">{{infoLabel2}}</label>
   <label *ngIf="infoLabel3" style="color: red">{{infoLabel3}}</label-->
 
   <mat-stepper orientation="horizontal" [linear]="isLinear" #stepper class="theme-background" *ngIf="xrplAccountInfo && xrplAccountInfo.Account">
