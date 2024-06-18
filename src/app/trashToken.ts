@@ -119,8 +119,6 @@ export class TrashToken implements OnInit, OnDestroy {
   loadingData:boolean = false;
   applyFilters:boolean = false;
 
-  websocket: WebSocketSubject<any>;
-
   infoLabel:string = null;
   infoLabel2:string = null;
   infoLabel3:string = null;
@@ -162,7 +160,7 @@ export class TrashToken implements OnInit, OnDestroy {
         this.isTestMode = ottData.nodetype === 'TESTNET';
         //this.isTestMode = true;
 
-        this.infoLabel2 = "changed mode to testnet: " + this.isTestMode;
+        //this.infoLabel2 = "changed mode to testnet: " + this.isTestMode;
 
         if(ottData && ottData.account && ottData.accountaccess == 'FULL') {
           await this.loadAccountData(ottData.account);
@@ -224,15 +222,6 @@ export class TrashToken implements OnInit, OnDestroy {
     });
     //this.infoLabel = JSON.stringify(this.device.getDeviceInfo());
 
-    //add event listeners
-    if (typeof window.addEventListener === 'function') {
-      window.addEventListener("message", event => this.handleOverlayEvent(event));
-    }
-    
-    if (typeof document.addEventListener === 'function') {
-      document.addEventListener("message", event => this.handleOverlayEvent(event));
-    }
-
     this.tw = new TypeWriter(["XRPL Services xApp", "created by nixerFFM", "XRPL Services xApp"], t => {
       this.title = t;
     })
@@ -261,21 +250,6 @@ export class TrashToken implements OnInit, OnDestroy {
 
     //console.log("resolved accountReserve: " + this.accountReserve);
     //console.log("resolved ownerReserve: " + this.ownerReserve);
-  }
-
-  async handleOverlayEvent(event:any) {
-    try {
-      if(event && event.data) {
-        let eventData = JSON.parse(event.data);
-
-        if(eventData && eventData.method == "payloadResolved" && eventData.reason == "DECLINED") {
-            //user closed without signing
-            this.loadingData = false;
-        }
-      }
-    } catch(err) {
-      //ignore errors
-    }
   }
 
   async waitForTransactionSigning(payloadRequest: GenericBackendPostRequest): Promise<any> {
@@ -315,28 +289,42 @@ export class TrashToken implements OnInit, OnDestroy {
 
     //remove old websocket
     try {
-      if(this.websocket && !this.websocket.closed) {
-        this.websocket.unsubscribe();
-        this.websocket.complete();
-      }
 
-      return new Promise( (resolve, reject) => {
+      return new Promise( async (resolve, reject) => {
 
-        this.websocket = webSocket(xummResponse.refs.websocket_status);
-        this.websocket.asObservable().subscribe(async message => {
-            //console.log("message received: " + JSON.stringify(message));
-            //this.infoLabel = "message received: " + JSON.stringify(message);
+        //use event listeners over websockets
+        if(typeof window.addEventListener === 'function') {
+          window.addEventListener("message", event => {
+            try {
+              if(event && event.data) {
+                let eventData = JSON.parse(event.data);
+        
+                console.log("WINDOW: " + eventData);
 
-            if((message.payload_uuidv4 && message.payload_uuidv4 === xummResponse.uuid) || message.pre_user_finish || message.expired || message.expires_in_seconds <= 0) {
+                if(eventData && eventData.method == "payloadResolved") {
 
-              if(this.websocket) {
-                this.websocket.unsubscribe();
-                this.websocket.complete();
+                  window.removeAllListeners("message");
+
+                  if(eventData.reason == "SIGNED") {
+                    //create own response
+                    let message = {
+                      signed: true,
+                      payload_uuidv4: eventData.uuid
+                    }
+                    
+                    resolve(message);
+
+                  } else if(eventData.reason == "DECLINED") {
+                    //user closed without signing
+                    resolve(null)
+                  }
+                }
               }
-              
-              setTimeout( () => resolve(message), 500);
+            } catch(err) {
+              //ignore errors
             }
-        });
+          });
+        }
       });
     } catch(err) {
       this.loadingData = false;
@@ -354,7 +342,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
       let serverInfoResponse = await this.xrplWebSocket.getWebsocketMessage("token-trasher", server_info, this.isTestMode);
 
-      this.infoLabel2 = "loading " + xrplAccount;
+      //this.infoLabel2 = "loading " + xrplAccount;
       if(xrplAccount && isValidXRPAddress(xrplAccount)) {
         this.loadingData = true;
         
@@ -466,7 +454,7 @@ export class TrashToken implements OnInit, OnDestroy {
   async loadIssuerAccountData(issuerAccount: string) {
     try {
       //console.log("loading account data...");
-      this.infoLabel2 = "loading " + issuerAccount;
+      //this.infoLabel2 = "loading " + issuerAccount;
       if(issuerAccount && isValidXRPAddress(issuerAccount)) {
         this.loadingData = true;
         
@@ -693,8 +681,14 @@ export class TrashToken implements OnInit, OnDestroy {
           this.paymentAmount = 0;
       }
 
+      
+
       if(this.selectedToken.issuer === 'rUNFLAKEnWicv4XsnoZrmSN1pXSWSMgZXc' && this.selectedToken.currency === 'UFm') {
         this.paymentAmount = 0;
+      }
+
+      if(this.paymentAmount > 0) {
+        await this.hasPreviouslyPaid(this.xrplAccountInfo.Account, this.selectedToken.issuer, this.selectedToken.currency, this.paymentAmount);
       }
       
     } catch(err) {
@@ -704,6 +698,76 @@ export class TrashToken implements OnInit, OnDestroy {
     }
 
     this.loadingData = false;
+  }
+
+  async hasPreviouslyPaid(userAccount: string, issuerAccount: string, currencyCode: string, toPay: number): Promise<void> {
+
+    try {
+      console.log("checking existing transactions")
+
+      //load account lines
+      let accountTransactions:any = {
+        command: "account_tx",
+        account: userAccount,
+        limit: 10
+      }
+
+      //console.log("starting to read account lines!")
+      console.log("accountTransactions: " + JSON.stringify(accountTransactions));
+
+      let accountTx = await this.xrplWebSocket.getWebsocketMessage('issuer-tx', accountTransactions, this.isTestMode);
+
+      console.log("accountTx: " + JSON.stringify(accountTx));
+
+      if(accountTx?.result?.transactions) {
+        
+        let transactions:any[] = accountTx?.result?.transactions;
+
+        for(let i = 0; i < transactions.length; i++) {
+          //scanning transactions for previous payments
+          console.log("looping through transactions")
+          try {
+            let transaction = transactions[i];
+
+            console.log("tx " + i + " : " + JSON.stringify(transaction));
+
+            if(transaction?.tx?.TransactionType === 'Payment' && transaction?.tx?.Destination === 'rNixerUVPwrhxGDt4UooDu6FJ7zuofvjCF' && transaction?.tx?.Memos && transaction?.meta?.TransactionResult === "tesSUCCESS" && transaction?.meta?.delivered_amount) {
+              //parse memos:
+              if(transaction.tx.Memos[1] && transaction.tx.Memos[1].Memo) {
+                let memoType = Buffer.from(transaction.tx.Memos[1].Memo.MemoType, 'hex').toString('utf8');
+                
+                console.log("memoType: " + JSON.stringify(memoType));
+
+                if(issuerAccount && currencyCode && memoType === 'Payment-Info') {
+                  let memoData = JSON.parse(Buffer.from(transaction.tx.Memos[1].Memo.MemoData, 'hex').toString('utf8'));
+
+                  console.log("memoData: " + JSON.stringify(memoData));
+
+                  if(memoData.issuer === issuerAccount.trim() && memoData.currency === currencyCode) {
+                    //check amount. make 20% margin!
+                    const deliveredAmount = parseInt(transaction?.meta?.delivered_amount) / 1000000;
+                    const lowerBoundary = toPay * 0.8;
+
+                    if(deliveredAmount > lowerBoundary) {
+                      this.paymentStarted = true;
+                      this.paymentSuccessful = true;
+                      console.log("PAYMENT FOUND!");
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+          } catch(err) {
+            //parse error, continue!
+            console.log(JSON.stringify(err));
+          }
+        }
+      }
+    } catch(err) {
+      console.log("ERR LOADING ACC TX")
+      console.log(JSON.stringify(err));
+    }
   }
 
   skipSwap() {
@@ -748,7 +812,7 @@ export class TrashToken implements OnInit, OnDestroy {
         this.convertionStarted = true;
         let message = await this.waitForTransactionSigning(payload);
 
-        if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
+        if(message && message.payload_uuidv4 && message.signed) {
           let paymentResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
           if(paymentResult && paymentResult.success && paymentResult.account && paymentResult.account === this.xrplAccountInfo.Account && paymentResult.testnet == this.isTestMode) {
             //payment ok!
@@ -806,7 +870,7 @@ export class TrashToken implements OnInit, OnDestroy {
         this.convertionStarted = true;
         let message = await this.waitForTransactionSigning(payload);
 
-        if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
+        if(message && message.payload_uuidv4 && message.signed) {
           let offerResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
           if(offerResult && offerResult.success && offerResult.account && offerResult.account === this.xrplAccountInfo.Account && offerResult.testnet == this.isTestMode) {
             //payment ok!
@@ -924,7 +988,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
       let message = await this.waitForTransactionSigning(payload);
 
-      if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
+      if(message && message.payload_uuidv4 && message.signed) {
         let paymentResult = await this.xummApi.validateTransaction(message.payload_uuidv4);
         if(paymentResult && paymentResult.success && paymentResult.account && paymentResult.account === this.xrplAccountInfo.Account && paymentResult.testnet == this.isTestMode) {
           //reload account data and balances!
@@ -992,7 +1056,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
       //this.infoLabel = "setTrustline " + JSON.stringify(this.recipient_account_info);
 
-      if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
+      if(message && message.payload_uuidv4 && message.signed) {
 
         let info = await this.xummApi.validateTransaction(message.payload_uuidv4)
 
@@ -1115,7 +1179,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
         //this.infoLabel = "setTrustline " + JSON.stringify(this.recipient_account_info);
 
-        if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
+        if(message && message.payload_uuidv4 && message.signed) {
 
           let info = await this.xummApi.validateTransaction(message.payload_uuidv4)
 
@@ -1158,6 +1222,7 @@ export class TrashToken implements OnInit, OnDestroy {
             Amount: Math.floor(this.paymentAmount * 1000000).toString(),
             Memos : [
                       {Memo: {MemoType: Buffer.from("xrpl.services", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from("Payment via Token Trasher xApp for using DEX conversion: " + this.selectedToken.issuer + " + " + this.selectedToken.currencyShow , 'utf8').toString('hex').toUpperCase()}},
+                      {Memo: {MemoType: Buffer.from("Payment-Info", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from(JSON.stringify({issuer: this.selectedToken.issuer.trim(),currency: normalizer.getCurrencyCodeForXRPL(this.selectedToken.currency.trim())}) , 'utf8').toString('hex').toUpperCase()}},
                     ]
           },
           custom_meta: {
@@ -1172,12 +1237,15 @@ export class TrashToken implements OnInit, OnDestroy {
       try {
         let message:any = await this.waitForTransactionSigning(genericBackendRequest);
 
-        if(message && ((message.payload_uuidv4) || message.pre_user_finish)) {
+        //this.infoLabel2 = JSON.stringify(message);
+
+        if(message && message.payload_uuidv4) {
       
           this.paymentStarted = true;
 
           let txInfo = await this.xummApi.checkPayment(message.payload_uuidv4);
-            //console.log('The generic dialog was closed: ' + JSON.stringify(info));
+           //console.log('The generic dialog was closed: ' + JSON.stringify(info));
+          //this.infoLabel3 = JSON.stringify(txInfo);
 
           if(txInfo && !txInfo.success) { //try again, just in case!
             txInfo = await this.xummApi.checkPayment(message.payload_uuidv4);
@@ -1239,7 +1307,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
       //this.infoLabel = "setTrustline " + JSON.stringify(this.recipient_account_info);
 
-      if(message && ((message.payload_uuidv4 && message.signed) || message.pre_user_finish)) {
+      if(message && message.payload_uuidv4 && message.signed) {
 
         let info = await this.xummApi.validateTransaction(message.payload_uuidv4)
 
