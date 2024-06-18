@@ -258,8 +258,11 @@ export class TrashToken implements OnInit, OnDestroy {
     let xummResponse:XummTypes.XummPostPayloadResponse;
     try {
         payloadRequest.payload.options = {
-          expire: 2,
-          signers: [payloadRequest.payload.txjson.Account+""]
+          expire: 2
+        }
+
+        if(payloadRequest.payload.txjson.Account && isValidXRPAddress(payloadRequest.payload.txjson.Account+"")) {
+          payloadRequest.payload.options.signers = [payloadRequest.payload.txjson.Account+""];
         }
 
         //console.log("sending xumm payload: " + JSON.stringify(xummPayload));
