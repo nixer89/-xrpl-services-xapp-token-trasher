@@ -9,7 +9,6 @@ import * as normalizer from './utils/normalizers';
 import { isValidXRPAddress } from 'src/app/utils/utils';
 import { OverlayContainer } from '@angular/cdk/overlay';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { webSocket, WebSocketSubject} from 'rxjs/webSocket';
 import { XummTypes } from 'xumm-sdk';
 import { TypeWriter } from './utils/TypeWriter';
 import * as clipboard from 'copy-to-clipboard';
@@ -65,6 +64,7 @@ export class TrashToken implements OnInit, OnDestroy {
   convertionStarted:boolean = false;
   skipConvertion:boolean = false;
   convertAmountXRP:number = null;
+  couldNotConvertAll:boolean = false;
 
   burnOnly:boolean = false;
 
@@ -270,12 +270,12 @@ export class TrashToken implements OnInit, OnDestroy {
         //this.infoLabel = "Called xumm successfully"
         //this.infoLabel = (JSON.stringify(xummResponse));
         if(!xummResponse || !xummResponse.uuid) {
-          this.snackBar.open("Error contacting XUMM backend", null, {panelClass: 'snackbar-failed', duration: 3000, horizontalPosition: 'center', verticalPosition: 'top'});
+          this.snackBar.open("Error contacting Xaman backend", null, {panelClass: 'snackbar-failed', duration: 3000, horizontalPosition: 'center', verticalPosition: 'top'});
           return null;
         }        
     } catch (err) {
         //console.log(JSON.stringify(err));
-        this.snackBar.open("Could not contact XUMM backend", null, {panelClass: 'snackbar-failed', duration: 3000, horizontalPosition: 'center', verticalPosition: 'top'});
+        this.snackBar.open("Could not contact Xaman backend", null, {panelClass: 'snackbar-failed', duration: 3000, horizontalPosition: 'center', verticalPosition: 'top'});
         return null;
     }
 
@@ -777,7 +777,7 @@ export class TrashToken implements OnInit, OnDestroy {
     this.skipConvertion = true;
   }
 
-  async convertTokenIntoXrp() {
+  async convertTokenIntoXrp(allOrNothing?: boolean) {
     this.loadingData = true;
     try {
 
@@ -833,13 +833,17 @@ export class TrashToken implements OnInit, OnDestroy {
 
           } else {
             //payment not success
-            this.gainedFromConverting = 0;
-            this.convertionStarted = false;
+            if(!allOrNothing) {
+              this.gainedFromConverting = 0;
+              this.convertionStarted = false;
+            }
           }
         } else {
           //not signed or error?
-          this.gainedFromConverting = 0;
-          this.convertionStarted = false;
+          if(!allOrNothing) {
+            this.gainedFromConverting = 0;
+            this.convertionStarted = false;
+          }
         }
       } else {
         //use a order
@@ -862,7 +866,7 @@ export class TrashToken implements OnInit, OnDestroy {
                 currency: this.selectedToken.currency,
                 value: this.selectedToken.balance
               },
-              TakerPays: "1",
+              TakerPays: !allOrNothing ? (this.convertAmountXRP * 0.90 * 1000000).toFixed() : "1", //set the actual amount we determined the user can convert to. and use 10% slippage
               Memos : [
                 {Memo: {MemoType: Buffer.from("xrpl.services", 'utf8').toString('hex').toUpperCase(), MemoData: Buffer.from("Offer via Token Trasher xApp." , 'utf8').toString('hex').toUpperCase()}},
               ]
@@ -911,13 +915,17 @@ export class TrashToken implements OnInit, OnDestroy {
             //console.log("this.convertedXrp: " + this.gainedFromConverting);
           } else {
             //payment not success
-            this.gainedFromConverting = 0;
-            this.convertionStarted = false;
+            if(!allOrNothing) {
+              this.gainedFromConverting = 0;
+              this.convertionStarted = false;
+            }
           }
         } else {
           //not signed or error?
-          this.gainedFromConverting = 0;
-          this.convertionStarted = false;
+          if(!allOrNothing) {
+            this.gainedFromConverting = 0;
+            this.convertionStarted = false;
+          }
         }
       }
 
@@ -935,6 +943,10 @@ export class TrashToken implements OnInit, OnDestroy {
         this.selectedToken = updatedToken[0];
       }
 
+      if(this.selectedToken.balance > 0 && allOrNothing) {
+        this.couldNotConvertAll = true;
+      }
+
       if(this.checkBoxSkipDialogs && this.selectedToken && this.convertionStarted) {
         //if balance = 0 -> send to issuer
         if(this.selectedToken.balance == 0) {
@@ -942,6 +954,9 @@ export class TrashToken implements OnInit, OnDestroy {
           await this.removeTrustLine();
           return;
         } else if(this.selectedToken.balance > 0) {
+          if(!this.couldNotConvertAll) {
+            return this.convertTokenIntoXrp(true);
+          }
           //could NOT sell everything! send leftover back to issuer
           await this.sendToIssuer();
           return;
@@ -1297,7 +1312,7 @@ export class TrashToken implements OnInit, OnDestroy {
             ]
           },
           custom_meta: {
-            instruction: "You are about to send some love to xrpl.services,\na project by @nixerFFM and not affiliated with XRPLLabs,\nthe creator of the XUMM wallet.\n\nThank you!",
+            instruction: "You are about to send some love to xrpl.services,\na project by @nixerFFM and not affiliated with XRPLLabs,\nthe creator of the Xaman wallet.\n\nThank you!",
             blob: {
               isDonation: true,
               purpose: "freiwillige Zahlung für XRPL Token Trasher"
@@ -1331,7 +1346,7 @@ export class TrashToken implements OnInit, OnDestroy {
 
     this.gainedFromConverting = this.gainedFromRemoving = this.gainedFromOffers = this.gainedTotal = 0;
 
-    this.paymentRequired = this.paymentSuccessful = this.paymentStarted = false;
+    this.paymentRequired = this.paymentSuccessful = this.paymentStarted = this.couldNotConvertAll = false;
     this.paymentAmount = 0;
 
     this.existingOffersForToken = this.removedOffersForToken = [];

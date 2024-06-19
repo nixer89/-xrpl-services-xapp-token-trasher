@@ -48,10 +48,10 @@
               </div>
             </div>
             <div *ngIf="!isXummProUser" style="font-weight: bold; font-size: 0.8em;">
-              <a href="https://xumm.app/detect/xapp:xumm.pro-beta?application_id=282206ef-7b2b-473a-85ba-4f1fc6b17266">( XUMM Pro required! Click here ... )</a>
+              <a href="https://xumm.app/detect/xapp:xumm.pro-beta?application_id=282206ef-7b2b-473a-85ba-4f1fc6b17266">( Xaman Pro required! Click here ... )</a>
             </div>
             <mat-card class="mat-card-orange" fxLayout="column" *ngIf="skipConvertion">
-              <label>Skips most of the dialogs and presents only XUMM sign requests.</label>
+              <label>Skips most of the dialogs and presents Xaman sign requests directly.</label>
               <label>This speeds up the removal process for tokens drastically.</label>
               <label>Please double check ALL sign requests!</label>
             </mat-card>
@@ -138,7 +138,7 @@
 
             <div *ngIf="!convertAmountXRP || paymentAmount <= 0 || (paymentAmount > 0 && paymentStarted && paymentSuccessful)" class="floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
               <label>&nbsp;</label>
-              <label>We will set a very low XRP value in the Offer (1 Drop or 0.000001 XRP).</label>
+              <label>We will add a 10% slippage to the Offer. So the XRP value will be slightly lower.</label>
               <label>But don't worry, the XRP Ledger will always give you the best possible rate.</label>
               <button mat-raised-button class="btn" style="width:100%" color="primary" (click)="convertTokenIntoXrp()">Convert to XRP</button>  
             </div>
@@ -159,10 +159,18 @@
         <div *ngIf="selectedToken && canConvert && convertionStarted && !loadingData" style="width: 100%;" fxLayout="column" fxLayoutAlign="center center" fxLayoutGap="0.5em">
 
           <mat-card class="mat-card-green floatcenter" *ngIf="canConvert && convertionStarted && gainedFromConverting > 0" fxLayout="column" fxLayoutGap="0.5em" style="width: 100%;">
-            <label>You have successfully exchanged {{selectedToken && selectedToken.balance === 0 ? 'all' : 'some'}} of your token for {{gainedFromConverting}} XRP.</label>
+            <label>You have successfully exchanged {{selectedToken && selectedToken.balance === 0 ? 'all' : 'some'}} of your token for a total of {{gainedFromConverting}} XRP.</label>
             <div *ngIf="selectedToken && selectedToken.balance > 0">
-              <label>The left over tokens can not be exchanged and we will send them back to the issuer to get rid of them!</label>
-              <label>After that, we can remove the trustline!</label>
+              <mat-card *ngIf="!couldNotConvertAll" class="mat-card-orange floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+                <label>Not all tokens could be exchanged in the previous step. You can try to exchange the left over tokens with a new offer which is more likely to succeed.</label>
+                <label>We will set a very low XRP value in the offer, but don't worry, the XRP Ledger will always give you the best possible rate.</label>
+                <button mat-raised-button class="btn" style="width:100%" color="primary" (click)="convertTokenIntoXrp(true)">Try again, but harder :-)</button>
+                <label>&nbsp;</label>
+              </mat-card>
+              <mat-card *ngIf="couldNotConvertAll" class="mat-card-orange floatcenter" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+                <label>The left over tokens can not be exchanged and we will have to send them back to the issuer to get rid of them!</label>
+                <label>After that, we can remove the trustline!</label>
+              </mat-card>
             </div>
           </mat-card>
         </div>
@@ -177,8 +185,8 @@
           </mat-card>
         </div>
 
-        <div *ngIf="selectedToken && selectedToken.balance > 0 && (!canConvert || skipConvertion || burnOnly || (canConvert && convertionStarted)) && !loadingData" fxLayout="column" fxLayoutGap="1em" style="width: 100%;">
-          <mat-card class="mat-card-red" *ngIf="issuerRequiresDestinationTag || xrplclusterRequiresDestinationTag" style="width: 100%;">
+        <div *ngIf="selectedToken && selectedToken.balance > 0 && (!canConvert || skipConvertion || burnOnly || (canConvert && convertionStarted && couldNotConvertAll) ) && !loadingData" fxLayout="column" fxLayoutGap="1em" style="width: 100%;">
+          <mat-card class="mat-card-red floatcenter" *ngIf="issuerRequiresDestinationTag || xrplclusterRequiresDestinationTag" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
             <label>The Issuer requires a Destination Tag for sending back the Token. We will set the Destination Tag to "13371337". If you happen to know 'your' Destination Tag with the issuer, please use the one you know!</label>
           </mat-card>
 
