@@ -323,7 +323,7 @@
               <mat-card class="mat-card-orange floatcenter" *ngIf="paymentSuccessful && paymentAmount > 0" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
                 <label>By paying only {{paymentAmount}} XRP for using this service!</label>
               </mat-card>
-              <div *ngIf="!paymentSuccessful && paymentAmount <= 0 && gainedTotal > 2" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
+              <div *ngIf="!paymentSuccessful && paymentAmount <= 0 && gainedTotal > 0.5" fxLayout="column" fxLayoutGap="0.5em" fxLayoutAlign="center center" style="width: 100%;">
                 <label>Please consider making a small payment of gratitude. Thank you!</label>
                 <button mat-raised-button color="primary" style="width: 100%;" (click)="sendSomeLove()">Send some Love</button>
               </div>   

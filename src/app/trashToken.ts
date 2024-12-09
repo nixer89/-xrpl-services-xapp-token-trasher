@@ -102,7 +102,7 @@ export class TrashToken implements OnInit, OnDestroy {
   paymentSuccessful:boolean = false;
   paymentStarted:boolean = false;
 
-  maxPaymentAmount:number = 20;
+  maxPaymentAmount:number = 10;
 
   @Input()
   ottChanged: Observable<any>;
@@ -245,8 +245,14 @@ export class TrashToken implements OnInit, OnDestroy {
     }
 
     let feeSetting:any = await this.xrplWebSocket.getWebsocketMessage("fee-settings", fee_request, this.isTestMode);
-    this.accountReserve = feeSetting?.result?.node["ReserveBase"];
-    this.ownerReserve = feeSetting?.result?.node["ReserveIncrement"];
+
+    if('ReserveBase' in feeSetting?.result?.node) {
+      this.accountReserve = feeSetting?.result?.node.ReserveBase;
+      this.ownerReserve = feeSetting?.result?.node.ReserveIncrement;
+    } else {
+      this.accountReserve = Number(feeSetting?.result?.node.ReserveBaseDrops);
+      this.ownerReserve = Number(feeSetting?.result?.node.ReserveIncrementDrops);
+    }
 
     //console.log("resolved accountReserve: " + this.accountReserve);
     //console.log("resolved ownerReserve: " + this.ownerReserve);
@@ -715,9 +721,9 @@ export class TrashToken implements OnInit, OnDestroy {
         }
       }
 
-      if(this.canConvert && this.convertAmountXRP && this.convertAmountXRP >= 5) {
+      if(this.canConvert && this.convertAmountXRP && this.convertAmountXRP >= 2) {
 
-        this.paymentAmount = Math.floor(this.convertAmountXRP * 0.1 * 1000000) / 1000000;
+        this.paymentAmount = Math.floor(this.convertAmountXRP * 0.05 * 1000000) / 1000000;
     
         if(this.paymentAmount > this.maxPaymentAmount)
           this.paymentAmount = this.maxPaymentAmount;
@@ -726,7 +732,6 @@ export class TrashToken implements OnInit, OnDestroy {
           this.paymentAmount = 0;
       }
 
-      
 
       if(this.selectedToken.issuer === 'rUNFLAKEnWicv4XsnoZrmSN1pXSWSMgZXc' && this.selectedToken.currency === 'UFm') {
         this.paymentAmount = 0;
